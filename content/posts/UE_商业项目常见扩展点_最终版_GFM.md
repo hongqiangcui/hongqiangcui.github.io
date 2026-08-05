@@ -7,7 +7,7 @@ tags:
   - Architecture
 categories:
   - Unreal Engine
-description: "整理商业 UE 项目最常见的扩展入口与 Override 点。"
+summary: "整理商业 UE 项目最常见的扩展入口与 Override 点。"
 draft: false
 ---
 

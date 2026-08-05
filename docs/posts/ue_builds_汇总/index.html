@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Unreal Engine 三种 Build 类型总结 | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>Unreal Engine 三种 Build 类型总结</h1>
+
+  
+  
+  <time datetime="2026-08-05T00:00:00&#43;00:00">August 5, 2026</time>
+
+  <h1 id="unreal-engine-三种-build-类型总结">Unreal Engine 三种 Build 类型总结</h1>
+<p>在 Unreal Engine 的开发过程中，最常见的 Engine Build 主要有三种：</p>
+<ol>
+<li><strong>Launcher Build（官方安装版）</strong></li>
+<li><strong>GitHub Source Build（源码版）</strong></li>
+<li><strong>Installed Build（安装版源码引擎）</strong></li>
+</ol>
+<p>它们最大的区别在于：</p>
+<ul>
+<li>Engine 是否可以修改</li>
+<li>Engine 是否需要自己编译</li>
+<li>团队协作方式</li>
+<li>适用的开发场景</li>
+</ul>
+<hr>
+<h1 id="三种-build-对比">三种 Build 对比</h1>
+<table>
+	<thead>
+			<tr>
+					<th>Build 类型</th>
+					<th>来源</th>
+					<th>是否可修改 Engine</th>
+					<th>是否需要编译 Engine</th>
+					<th>适合对象</th>
+					<th>优点</th>
+					<th>缺点</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>Launcher Build</strong></td>
+					<td>Epic Games Launcher</td>
+					<td>❌</td>
+					<td>❌</td>
+					<td>普通游戏开发者、美术、策划</td>
+					<td>安装简单、更新方便、稳定</td>
+					<td>无法修改 Engine 源码</td>
+			</tr>
+			<tr>
+					<td><strong>GitHub Source Build</strong></td>
+					<td>Epic GitHub</td>
+					<td>✅</td>
+					<td>✅</td>
+					<td>Engine Programmer、图形开发</td>
+					<td>完整源码，可自由修改</td>
+					<td>编译时间长，占用空间大</td>
+			</tr>
+			<tr>
+					<td><strong>Installed Build</strong></td>
+					<td>BuildGraph</td>
+					<td>⚠️（通常重新生成而不是直接修改）</td>
+					<td>首次需要</td>
+					<td>企业团队</td>
+					<td>使用方便、统一版本</td>
+					<td>维护 BuildGraph 成本较高</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="1-launcher-build官方安装版">1. Launcher Build（官方安装版）</h1>
+<h2 id="来源">来源</h2>
+<p>通过 Epic Games Launcher 安装。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Epic Games Launcher
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span> 已编译好的 Unreal Engine
+</span></span><span style="display:flex;"><span>        ├── UEEditor.exe
+</span></span><span style="display:flex;"><span>        ├── Engine DLL
+</span></span><span style="display:flex;"><span>        └── Headers
+</span></span></code></pre></div><hr>
+<h2 id="特点">特点</h2>
+<p>Launcher Build 已经完成全部 Engine 编译。</p>
+<p>开发者可以：</p>
+<ul>
+<li>开发游戏</li>
+<li>编译自己的 C++ Project</li>
+<li>阅读 Engine Source（安装 Source 时）</li>
+</ul>
+<p>但是不能：</p>
+<ul>
+<li>修改 Engine</li>
+<li>Rebuild Engine</li>
+<li>修改 Renderer</li>
+<li>修改 Physics</li>
+<li>修改 Animation Framework</li>
+<li>修改 Lumen / Nanite</li>
+</ul>
+<hr>
+<h2 id="适用场景">适用场景</h2>
+<p>推荐给：</p>
+<ul>
+<li>游戏开发者</li>
+<li>美术</li>
+<li>技术美术（TA）</li>
+<li>关卡设计</li>
+<li>小型团队</li>
+</ul>
+<blockquote>
+<p>对于绝大多数 UE 开发者来说，Launcher Build 已经足够使用。</p>
+</blockquote>
+<hr>
+<h1 id="2-github-source-build源码版">2. GitHub Source Build（源码版）</h1>
+<h2 id="来源-1">来源</h2>
+<p>Epic GitHub：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>https://github.com/EpicGames/UnrealEngine
+</span></span></code></pre></div><p>需要关联 Epic 与 GitHub 账号后才能访问。</p>
+<hr>
+<h2 id="编译流程">编译流程</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Git Clone
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>      ▼
+</span></span><span style="display:flex;"><span> Setup.bat
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>      ▼
+</span></span><span style="display:flex;"><span> GenerateProjectFiles.bat
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>      ▼
+</span></span><span style="display:flex;"><span> Visual Studio
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>      ▼
+</span></span><span style="display:flex;"><span> Build UE5
+</span></span></code></pre></div><p>最终得到：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>UE Source
+</span></span><span style="display:flex;"><span>     │
+</span></span><span style="display:flex;"><span>     ▼
+</span></span><span style="display:flex;"><span> 自己编译
+</span></span><span style="display:flex;"><span>     │
+</span></span><span style="display:flex;"><span>     ▼
+</span></span><span style="display:flex;"><span> UEEditor.exe
+</span></span></code></pre></div><hr>
+<h2 id="最大优势">最大优势</h2>
+<p>拥有完整 Engine Source。</p>
+<p>可以修改任何模块，例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Engine/
+</span></span><span style="display:flex;"><span>├── Runtime/
+</span></span><span style="display:flex;"><span>├── Renderer/
+</span></span><span style="display:flex;"><span>├── Core/
+</span></span><span style="display:flex;"><span>├── Slate/
+</span></span><span style="display:flex;"><span>├── Physics/
+</span></span><span style="display:flex;"><span>├── Animation/
+</span></span><span style="display:flex;"><span>├── AI/
+</span></span><span style="display:flex;"><span>└── Niagara/
+</span></span></code></pre></div><p>全部都可以：</p>
+<ul>
+<li>Debug</li>
+<li>修改源码</li>
+<li>Recompile</li>
+<li>添加自己的 Engine Feature</li>
+</ul>
+<hr>
+<h2 id="适用场景-1">适用场景</h2>
+<p>推荐给：</p>
+<ul>
+<li>Engine Programmer</li>
+<li>Rendering Engineer</li>
+<li>Physics Programmer</li>
+<li>Plugin Developer</li>
+<li>学习 UE 底层实现</li>
+</ul>
+<hr>
+<h1 id="3-installed-build安装版源码引擎">3. Installed Build（安装版源码引擎）</h1>
+<p>很多大型游戏公司都会采用这种方式。</p>
+<p>典型流程如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>GitHub Source
+</span></span><span style="display:flex;"><span>       │
+</span></span><span style="display:flex;"><span>       ▼
+</span></span><span style="display:flex;"><span> 修改 Engine
+</span></span><span style="display:flex;"><span>       │
+</span></span><span style="display:flex;"><span>       ▼
+</span></span><span style="display:flex;"><span> BuildGraph
+</span></span><span style="display:flex;"><span>       │
+</span></span><span style="display:flex;"><span>       ▼
+</span></span><span style="display:flex;"><span> Installed Build
+</span></span><span style="display:flex;"><span>       │
+</span></span><span style="display:flex;"><span>       ▼
+</span></span><span style="display:flex;"><span> 分发整个团队
+</span></span></code></pre></div><p>开发人员拿到的是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Custom Unreal Engine
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span> 类似 Launcher 的安装体验
+</span></span></code></pre></div><p>目录通常包括：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>UEEditor.exe
+</span></span><span style="display:flex;"><span>Engine/
+</span></span><span style="display:flex;"><span>Templates/
+</span></span><span style="display:flex;"><span>Plugins/
+</span></span></code></pre></div><p>开发体验几乎与 Launcher Build 相同。</p>
+<hr>
+<h2 id="为什么需要-installed-build">为什么需要 Installed Build？</h2>
+<p>企业通常都会对 Engine 做一些定制，例如：</p>
+<ul>
+<li>Renderer 修改</li>
+<li>Console 修改</li>
+<li>Build Tool 修改</li>
+<li>内部 Plugin</li>
+<li>第三方 SDK</li>
+<li>Performance Patch</li>
+<li>Bug Fix</li>
+</ul>
+<p>如果每位开发者都自行编译：</p>
+<ul>
+<li>编译时间长</li>
+<li>容易版本不一致</li>
+<li>环境配置复杂</li>
+</ul>
+<p>因此通常由 Engine Team：</p>
+<ol>
+<li>修改 Engine</li>
+<li>编译一次</li>
+<li>生成 Installed Build</li>
+<li>分发给整个团队</li>
+</ol>
+<p>其他开发人员无需重新编译即可直接使用。</p>
+<hr>
+<h1 id="三者关系">三者关系</h1>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>                    Epic Games
+</span></span><span style="display:flex;"><span>                        │
+</span></span><span style="display:flex;"><span>                        ▼
+</span></span><span style="display:flex;"><span>              GitHub Source Code
+</span></span><span style="display:flex;"><span>                        │
+</span></span><span style="display:flex;"><span>          ┌─────────────┴─────────────┐
+</span></span><span style="display:flex;"><span>          │                           │
+</span></span><span style="display:flex;"><span>          ▼                           ▼
+</span></span><span style="display:flex;"><span> Launcher Build              GitHub Source Build
+</span></span><span style="display:flex;"><span>（官方二进制）                 （源码编译）
+</span></span><span style="display:flex;"><span>                                      │
+</span></span><span style="display:flex;"><span>                                      ▼
+</span></span><span style="display:flex;"><span>                            修改 Engine Source
+</span></span><span style="display:flex;"><span>                                      │
+</span></span><span style="display:flex;"><span>                                      ▼
+</span></span><span style="display:flex;"><span>                                BuildGraph
+</span></span><span style="display:flex;"><span>                                      │
+</span></span><span style="display:flex;"><span>                                      ▼
+</span></span><span style="display:flex;"><span>                               Installed Build
+</span></span><span style="display:flex;"><span>                             （团队统一版本）
+</span></span></code></pre></div><hr>
+<h1 id="如何选择">如何选择？</h1>
+<table>
+	<thead>
+			<tr>
+					<th>场景</th>
+					<th>推荐</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>普通游戏开发</td>
+					<td>Launcher Build</td>
+			</tr>
+			<tr>
+					<td>学习 Engine 源码</td>
+					<td>GitHub Source Build</td>
+			</tr>
+			<tr>
+					<td>修改 Engine</td>
+					<td>GitHub Source Build</td>
+			</tr>
+			<tr>
+					<td>修改 Renderer</td>
+					<td>GitHub Source Build</td>
+			</tr>
+			<tr>
+					<td>公司多人协作</td>
+					<td>Installed Build</td>
+			</tr>
+			<tr>
+					<td>企业统一开发环境</td>
+					<td>Installed Build</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="三种-build-对比总结">三种 Build 对比总结</h1>
+<table>
+	<thead>
+			<tr>
+					<th>项目</th>
+					<th>Launcher</th>
+					<th>Source</th>
+					<th>Installed</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>官方支持</td>
+					<td>✅</td>
+					<td>✅</td>
+					<td>企业内部</td>
+			</tr>
+			<tr>
+					<td>已编译</td>
+					<td>✅</td>
+					<td>❌</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>可修改 Engine</td>
+					<td>❌</td>
+					<td>✅</td>
+					<td>⚠️（通过重新生成）</td>
+			</tr>
+			<tr>
+					<td>编译耗时</td>
+					<td>无</td>
+					<td>很长</td>
+					<td>首次生成较长</td>
+			</tr>
+			<tr>
+					<td>团队统一版本</td>
+					<td>一般</td>
+					<td>不方便</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>更新简单</td>
+					<td>✅</td>
+					<td>❌</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Engine Debug</td>
+					<td>有限</td>
+					<td>完整支持</td>
+					<td>支持（取决于符号和源码配置）</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="一句话总结">一句话总结</h1>
+<ul>
+<li><strong>Launcher Build</strong>：官方提供的二进制版本，安装简单，适合绝大多数游戏开发。</li>
+<li><strong>GitHub Source Build</strong>：完整源码版本，适合修改 Engine、学习底层实现以及开发自定义功能。</li>
+<li><strong>Installed Build</strong>：基于 Source Build 构建出的企业发行版本，兼顾源码定制能力和团队分发效率，是中大型 UE 项目的主流方案。</li>
+</ul>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/ue5/">UE5</a></li>
+        <li><a href="/tags/build/">Build</a></li>
+        <li><a href="/tags/engine/">Engine</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>
