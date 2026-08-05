@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>UE 商业项目常见扩展点（最终版大表） | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>UE 商业项目常见扩展点（最终版大表）</h1>
+
+  
+  
+  <time datetime="2026-08-05T00:00:00&#43;00:00">August 5, 2026</time>
+
+  <h1 id="unreal-engine-商业项目常见扩展点最终版大表">Unreal Engine 商业项目常见扩展点（最终版大表）</h1>
+<blockquote>
+<p>本文采用 <strong>GitHub Flavored Markdown (GFM)</strong> 编写，可直接用于 <strong>Hugo (PaperMod)</strong>、GitHub、Obsidian、Typora。</p>
+</blockquote>
+<table>
+	<thead>
+			<tr>
+					<th>层级</th>
+					<th>常见 Override / 扩展点</th>
+					<th>主要用途</th>
+					<th>典型内容</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>事件解耦</strong></td>
+					<td>Delegate、Multicast Delegate、Dynamic Delegate</td>
+					<td>模块解耦、事件广播、异步回调</td>
+					<td>Gameplay Message、Observer Pattern</td>
+			</tr>
+			<tr>
+					<td><strong>Gameplay Framework</strong></td>
+					<td>GameMode、GameState、PlayerController、PlayerState、Pawn、Character、Actor、ActorComponent</td>
+					<td>游戏主体架构</td>
+					<td>生命周期、输入、规则、角色、组件</td>
+			</tr>
+			<tr>
+					<td><strong>组件生命周期</strong></td>
+					<td>OnComponentCreated、RegisterComponent、OnRegister、InitializeComponent、PostInitializeComponents、BeginPlay、TickComponent、OnUnregister</td>
+					<td>初始化、注册、Tick、销毁</td>
+					<td>最常见 Override 点</td>
+			</tr>
+			<tr>
+					<td><strong>显隐 / 渲染 / 物理</strong></td>
+					<td>SetVisibility、SetHiddenInGame、OnVisibilityChanged、SetupAttachment、AttachToComponent、CreateSceneProxy、ShouldCreatePhysicsState</td>
+					<td>可见性、Render、Physics</td>
+					<td>LOD、Streaming、SceneProxy</td>
+			</tr>
+			<tr>
+					<td><strong>Activation</strong></td>
+					<td>Activate、Deactivate、OnComponentActivated、OnComponentDeactivated</td>
+					<td>功能启停、对象池</td>
+					<td>延迟初始化</td>
+			</tr>
+			<tr>
+					<td><strong>Subsystem</strong></td>
+					<td>EngineSubsystem、GameInstanceSubsystem、WorldSubsystem、LocalPlayerSubsystem、EditorSubsystem</td>
+					<td>全局管理器</td>
+					<td>Manager、Service、Cache</td>
+			</tr>
+			<tr>
+					<td><strong>GAS</strong></td>
+					<td>AbilitySystemComponent、GameplayAbility、GameplayEffect、GameplayCue、AttributeSet</td>
+					<td>技能系统</td>
+					<td>RPG、Buff、属性</td>
+			</tr>
+			<tr>
+					<td><strong>数据驱动 / 契约层</strong></td>
+					<td>Interface、GameplayTags、PrimaryDataAsset、DataAsset、DataTable、CurveTable、AssetManager、DeveloperSettings</td>
+					<td>数据驱动、解耦</td>
+					<td>配置、资源管理</td>
+			</tr>
+			<tr>
+					<td><strong>Networking</strong></td>
+					<td>Replication、RPC、ReplicateSubobjects、FastArraySerializer、ReplicationGraph、Prediction、Reconciliation</td>
+					<td>联机同步</td>
+					<td>MMO、多人游戏</td>
+			</tr>
+			<tr>
+					<td><strong>World Partition / Streaming</strong></td>
+					<td>PlayerController Streaming Source、StreamingSourceComponent、WorldPartitionSubsystem、StreamingPolicy、RuntimeSpatialHash、RuntimeGrid、DataLayer、HLOD</td>
+					<td>开放世界</td>
+					<td>Cell Streaming</td>
+			</tr>
+			<tr>
+					<td><strong>Plugin / Module / Game Feature</strong></td>
+					<td>Runtime Plugin、Editor Plugin、Runtime Module、Editor Module、Developer Module、Game Feature Plugin、Experience</td>
+					<td>模块化、热更新、DLC</td>
+					<td>LiveOps</td>
+			</tr>
+			<tr>
+					<td><strong>AI</strong></td>
+					<td>AIController、BehaviorTree、StateTree、EQS、Navigation、AIPerception、SmartObject</td>
+					<td>AI 系统</td>
+					<td>NPC、导航</td>
+			</tr>
+			<tr>
+					<td><strong>Input</strong></td>
+					<td>Enhanced Input、Input Action、Mapping Context、Trigger、Modifier</td>
+					<td>输入系统</td>
+					<td>多平台输入</td>
+			</tr>
+			<tr>
+					<td><strong>UI</strong></td>
+					<td>UMG、Slate、Widget、CommonUI</td>
+					<td>UI 系统</td>
+					<td>HUD、菜单</td>
+			</tr>
+			<tr>
+					<td><strong>Blueprint</strong></td>
+					<td>Blueprint、BlueprintImplementableEvent、BlueprintNativeEvent、Blueprint Function Library、Blueprint Interface</td>
+					<td>设计师扩展</td>
+					<td>可视化脚本</td>
+			</tr>
+			<tr>
+					<td><strong>Animation</strong></td>
+					<td>AnimInstance、AnimGraph、AnimNode、AnimNotify、Control Rig、Motion Matching</td>
+					<td>动画系统</td>
+					<td>角色动画</td>
+			</tr>
+			<tr>
+					<td><strong>Rendering</strong></td>
+					<td>SceneViewExtension、PostProcess、Material、Niagara、Custom Pass、PrimitiveSceneProxy</td>
+					<td>图形渲染</td>
+					<td>高级渲染扩展</td>
+			</tr>
+			<tr>
+					<td><strong>Physics</strong></td>
+					<td>Chaos、MovementComponent、Collision、PhysicalMaterial</td>
+					<td>物理系统</td>
+					<td>碰撞、角色移动</td>
+			</tr>
+			<tr>
+					<td><strong>Editor / Tooling</strong></td>
+					<td>EditorSubsystem、Editor Module、Detail Customization、AssetTypeActions、Editor Utility Widget、Validation、Commandlet</td>
+					<td>编辑器工具</td>
+					<td>自动化、生产力</td>
+			</tr>
+			<tr>
+					<td><strong>Build / Packaging</strong></td>
+					<td>UBT、Build.cs、Target.cs、Cook、Pak、IoStore</td>
+					<td>构建发布</td>
+					<td>打包、CI</td>
+			</tr>
+			<tr>
+					<td><strong>Mod</strong></td>
+					<td>Plugin-based Mod、Game Feature Mod、Pak Mod</td>
+					<td>Mod 支持</td>
+					<td>玩家扩展内容</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="推荐学习优先级">推荐学习优先级</h1>
+<ol>
+<li>Gameplay Framework</li>
+<li>Actor / ActorComponent 生命周期</li>
+<li>Delegate</li>
+<li>Subsystem</li>
+<li>数据驱动（Gameplay Tags / DataAsset）</li>
+<li>GAS</li>
+<li>Plugin + Module</li>
+<li>Networking</li>
+<li>World Partition / Streaming</li>
+<li>Blueprint</li>
+<li>AI</li>
+<li>Animation</li>
+<li>Rendering</li>
+<li>Editor / Tooling</li>
+<li>Build / Packaging</li>
+<li>Mod</li>
+</ol>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/ue5/">UE5</a></li>
+        <li><a href="/tags/architecture/">Architecture</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>
