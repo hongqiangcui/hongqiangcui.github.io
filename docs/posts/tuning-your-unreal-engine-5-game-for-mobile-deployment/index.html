@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Tuning Your Unreal Engine 5 Game for Mobile Deployment：移动端配置与调优体系 | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>Tuning Your Unreal Engine 5 Game for Mobile Deployment：移动端配置与调优体系</h1>
+
+  
+  
+  <time datetime="2026-08-05T00:00:00&#43;00:00">August 5, 2026</time>
+
+  <h1 id="tuning-your-unreal-engine-5-game-for-mobile-deployment">Tuning Your Unreal Engine 5 Game for Mobile Deployment</h1>
+<p>很多开发者认为：</p>
+<blockquote>
+<p>移动端优化，就是把画质调低。</p>
+</blockquote>
+<p>Epic 在 GDC 分享的 <strong>《Tuning Your Unreal Engine 5 Game for Mobile Deployment》</strong> 想表达的并不是这一点。</p>
+<p>真正的问题是：</p>
+<blockquote>
+<p><strong>如何让同一个 UE5 项目，在不同性能等级的手机上，都能获得合理的体验？</strong></p>
+</blockquote>
+<p>因此，Epic 将移动端调优划分为四个层面：</p>
+<table>
+	<thead>
+			<tr>
+					<th>层级</th>
+					<th>目标</th>
+					<th>核心关键词</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>Configuration Variation</strong></td>
+					<td>配置变体</td>
+					<td>Project Settings、Scalability、Device Profiles</td>
+			</tr>
+			<tr>
+					<td><strong>Content Variation</strong></td>
+					<td>内容变体</td>
+					<td>LOD、Material、Cull、Niagara</td>
+			</tr>
+			<tr>
+					<td><strong>Iterating / Testing / Profiling</strong></td>
+					<td>调试与验证</td>
+					<td>Preview Platform、Insights、Device Log</td>
+			</tr>
+			<tr>
+					<td><strong>Console Commands</strong></td>
+					<td>实时调优</td>
+					<td>CVar、Scalability、Profile Commands</td>
+			</tr>
+	</tbody>
+</table>
+<p>整个流程如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Configuration
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Content
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Build
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Deploy
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Testing
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Profiling
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Iteration
+</span></span></code></pre></div><p>移动端优化本质上是一个持续迭代的工程流程。</p>
+<hr>
+<h1 id="一configuration-variation配置变体">一、Configuration Variation（配置变体）</h1>
+<p>第一层解决的问题是：</p>
+<blockquote>
+<p><strong>不同设备，是否应该使用不同配置？</strong></p>
+</blockquote>
+<p>答案显然是：</p>
+<blockquote>
+<p>是。</p>
+</blockquote>
+<p>Epic 推荐利用多层配置系统，而不是修改代码。</p>
+<h2 id="配置体系">配置体系</h2>
+<table>
+	<thead>
+			<tr>
+					<th>配置层</th>
+					<th>作用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Project Settings</td>
+					<td>全局默认配置</td>
+			</tr>
+			<tr>
+					<td>Scalability Settings</td>
+					<td>不同画质等级</td>
+			</tr>
+			<tr>
+					<td>Device Profiles</td>
+					<td>不同设备配置</td>
+			</tr>
+			<tr>
+					<td>Saved User Settings</td>
+					<td>用户运行时设置</td>
+			</tr>
+			<tr>
+					<td>Console Variables</td>
+					<td>临时覆盖配置</td>
+			</tr>
+	</tbody>
+</table>
+<p>整个优先级可以理解为：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Project Settings
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Scalability
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Device Profile
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>User Settings
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Console Variables
+</span></span></code></pre></div><p>越往下：</p>
+<p>优先级越高。</p>
+<hr>
+<h2 id="device-profiles">Device Profiles</h2>
+<p>这是移动端最重要的配置系统。</p>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Android
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>├── Android_Low
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>├── Android_Mid
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>└── Android_High
+</span></span></code></pre></div><p>不同 Profile：</p>
+<p>可以自动：</p>
+<ul>
+<li>Texture Size</li>
+<li>Shadow Quality</li>
+<li>Resolution Scale</li>
+<li>LOD Bias</li>
+<li>Material Quality</li>
+</ul>
+<p>而不需要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">if</span>(Android)
+</span></span></code></pre></div><p>这样的代码。</p>
+<hr>
+<h1 id="二content-variation内容变体">二、Content Variation（内容变体）</h1>
+<p>不同设备：</p>
+<p>不仅：</p>
+<p>配置不同。</p>
+<p>资源：</p>
+<p>也应该：</p>
+<p>不同。</p>
+<p>Epic 推荐：</p>
+<h2 id="内容变体">内容变体</h2>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+					<th>作用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Per Quality Level</td>
+					<td>不同画质资源</td>
+			</tr>
+			<tr>
+					<td>Per Platform</td>
+					<td>不同平台资源</td>
+			</tr>
+			<tr>
+					<td>Cull Distance Volume</td>
+					<td>距离裁剪</td>
+			</tr>
+			<tr>
+					<td>Significance Manager</td>
+					<td>动态重要性</td>
+			</tr>
+			<tr>
+					<td>Niagara Effect Types</td>
+					<td>FX Budget</td>
+			</tr>
+			<tr>
+					<td>Static Mesh LOD Auto Generation</td>
+					<td>自动生成 LOD</td>
+			</tr>
+			<tr>
+					<td>Skeletal Mesh Bone Reduction</td>
+					<td>骨骼精简</td>
+			</tr>
+			<tr>
+					<td>Material Quality Switch</td>
+					<td>材质质量切换</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h2 id="static-mesh-lod">Static Mesh LOD</h2>
+<p>移动端：</p>
+<p>不要：</p>
+<p>所有模型：</p>
+<p>LOD0。</p>
+<p>推荐：</p>
+<p>自动生成：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>LOD0
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>LOD1
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>LOD2
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>LOD3
+</span></span></code></pre></div><hr>
+<h2 id="skeletal-mesh-bone-reduction">Skeletal Mesh Bone Reduction</h2>
+<p>CPU：</p>
+<p>很多：</p>
+<p>来自：</p>
+<p>Animation。</p>
+<p>Bone Reduction：</p>
+<p>直接：</p>
+<p>减少：</p>
+<p>CPU。</p>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>120 Bones
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>60 Bones
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>40 Bones
+</span></span></code></pre></div><hr>
+<h2 id="material-quality-switch">Material Quality Switch</h2>
+<p>Material：</p>
+<p>也：</p>
+<p>支持：</p>
+<p>不同：</p>
+<p>质量等级。</p>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>High
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Normal Map
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Clear Coat
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Parallax
+</span></span></code></pre></div><p>Low：</p>
+<p>自动：</p>
+<p>关闭。</p>
+<hr>
+<h1 id="三iterating--testing--profiling">三、Iterating / Testing / Profiling</h1>
+<p>Epic：</p>
+<p>认为：</p>
+<p>移动端：</p>
+<p>开发。</p>
+<p>Profiling：</p>
+<p>比：</p>
+<p>Optimization：</p>
+<p>更重要。</p>
+<hr>
+<h2 id="preview-platform">Preview Platform</h2>
+<p>Editor：</p>
+<p>直接：</p>
+<p>模拟：</p>
+<p>Android。</p>
+<p>不用：</p>
+<p>每次：</p>
+<p>打包。</p>
+<hr>
+<h2 id="device-output-log">Device Output Log</h2>
+<p>查看：</p>
+<p>手机：</p>
+<p>真实：</p>
+<p>Log。</p>
+<hr>
+<h2 id="console-variables-window">Console Variables Window</h2>
+<p>实时：</p>
+<p>修改：</p>
+<p>Renderer。</p>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>r.MobileHDR
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>r.ShadowQuality
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>r.ScreenPercentage
+</span></span></code></pre></div><p>不用：</p>
+<p>重新：</p>
+<p>编译。</p>
+<hr>
+<h2 id="android-调试">Android 调试</h2>
+<p>Epic：</p>
+<p>推荐：</p>
+<p>使用：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>adb
+</span></span></code></pre></div><p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>UECommand.txt
+</span></span></code></pre></div><p>自动：</p>
+<p>执行：</p>
+<p>Console Commands。</p>
+<hr>
+<h2 id="ios-workflow">iOS Workflow</h2>
+<p>支持：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>OverrideCL
+</span></span></code></pre></div><p>快速：</p>
+<p>验证：</p>
+<p>配置。</p>
+<hr>
+<h2 id="unreal-insights">Unreal Insights</h2>
+<p>移动端：</p>
+<p>Profiling：</p>
+<p>首选。</p>
+<p>分析：</p>
+<ul>
+<li>CPU</li>
+<li>GPU</li>
+<li>Loading</li>
+<li>Async</li>
+<li>Memory</li>
+</ul>
+<hr>
+<h2 id="automated-performance-testing">Automated Performance Testing</h2>
+<p>Epic：</p>
+<p>建议：</p>
+<p>性能：</p>
+<p>自动化。</p>
+<p>例如：</p>
+<p>每天：</p>
+<p>CI：</p>
+<p>自动：</p>
+<p>跑：</p>
+<p>Benchmark。</p>
+<p>而不是：</p>
+<p>人工：</p>
+<p>测试。</p>
+<hr>
+<h2 id="multi-process-cook">Multi-process Cook</h2>
+<p>Cook：</p>
+<p>不要：</p>
+<p>单线程。</p>
+<p>推荐：</p>
+<p>Multi-process Cook。</p>
+<hr>
+<h2 id="zen">Zen</h2>
+<p>UE5：</p>
+<p>推荐：</p>
+<p>Zen。</p>
+<p>提升：</p>
+<p>Cook：</p>
+<p>和：</p>
+<p>Asset Loading。</p>
+<hr>
+<h1 id="四console-commands">四、Console Commands</h1>
+<p>Console Command：</p>
+<p>不仅：</p>
+<p>调试。</p>
+<p>也是：</p>
+<p>移动端：</p>
+<p>调优。</p>
+<hr>
+<h2 id="debug">Debug</h2>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>stat unit
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>stat gpu
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>stat memory
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>profilegpu
+</span></span></code></pre></div><hr>
+<h2 id="scalability">Scalability</h2>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>sg.ViewDistanceQuality
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>sg.ShadowQuality
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>sg.TextureQuality
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>sg.PostProcessQuality
+</span></span></code></pre></div><hr>
+<h2 id="device-profile">Device Profile</h2>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>dp.Override
+</span></span></code></pre></div><p>切换：</p>
+<p>设备：</p>
+<p>Profile。</p>
+<hr>
+<h2 id="performance">Performance</h2>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>stat fps
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>stat unitgraph
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>memreport
+</span></span></code></pre></div><p>这些：</p>
+<p>都是：</p>
+<p>移动端：</p>
+<p>最常用：</p>
+<p>命令。</p>
+<hr>
+<h1 id="ue5-mobile-optimization-pipeline">UE5 Mobile Optimization Pipeline</h1>
+<p>Epic 推荐建立如下流程：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Configuration
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Content Variation
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Cook
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Deploy
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Profiling
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Adjust Configuration
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Repeat
+</span></span></code></pre></div><p>整个优化过程是一个持续迭代的闭环，而不是一次性的调参。</p>
+<hr>
+<h1 id="ue5-移动端配置体系">UE5 移动端配置体系</h1>
+<p>从工程角度来看，可以抽象为：</p>
+<table>
+	<thead>
+			<tr>
+					<th>层级</th>
+					<th>代表技术</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Configuration</td>
+					<td>Device Profiles、Scalability、Project Settings</td>
+			</tr>
+			<tr>
+					<td>Content</td>
+					<td>LOD、Cull、Material Quality、Niagara</td>
+			</tr>
+			<tr>
+					<td>Runtime</td>
+					<td>Console Variables、User Settings</td>
+			</tr>
+			<tr>
+					<td>Profiling</td>
+					<td>Unreal Insights、Output Log、Preview Platform</td>
+			</tr>
+			<tr>
+					<td>Automation</td>
+					<td>Automated Testing、Zen、Multi-process Cook</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="总结">总结</h1>
+<p>Epic 在《Tuning Your Unreal Engine 5 Game for Mobile Deployment》中强调：</p>
+<p>移动端优化不是简单地降低画质，而是建立一套<strong>配置驱动（Configuration Driven）</strong> 的调优体系。</p>
+<p>整个系统围绕四个核心能力展开：</p>
+<ul>
+<li><strong>Configuration Variation</strong>：根据设备能力自动选择配置。</li>
+<li><strong>Content Variation</strong>：根据平台和质量等级自动切换资源。</li>
+<li><strong>Iterating / Testing / Profiling</strong>：快速验证、分析和定位性能问题。</li>
+<li><strong>Console Commands</strong>：通过 CVar 和调试命令实现实时调优。</li>
+</ul>
+<p>一句话总结：</p>
+<blockquote>
+<p><strong>移动端优化的目标不是找到一组“最佳参数”，而是构建一套能够针对不同设备动态适配的配置系统（Configuration System）。</strong></p>
+</blockquote>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/ue5/">UE5</a></li>
+        <li><a href="/tags/mobile/">Mobile</a></li>
+        <li><a href="/tags/optimization/">Optimization</a></li>
+        <li><a href="/tags/device-profiles/">Device Profiles</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>

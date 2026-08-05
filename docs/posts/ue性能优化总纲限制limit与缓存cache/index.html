@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Unreal Engine 性能优化总纲：限制（Limit）与缓存（Cache） | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>Unreal Engine 性能优化总纲：限制（Limit）与缓存（Cache）</h1>
+
+  
+  
+  <time datetime="2026-08-05T00:00:00&#43;00:00">August 5, 2026</time>
+
+  <h1 id="unreal-engine-性能优化总纲">Unreal Engine 性能优化总纲</h1>
+<p>很多人学习 UE 优化，会先学习：</p>
+<ul>
+<li>LOD</li>
+<li>HLOD</li>
+<li>Nanite</li>
+<li>World Partition</li>
+<li>GPU Scene</li>
+<li>FSR</li>
+<li>PSO</li>
+</ul>
+<p>但这些其实只是各种优化技术。</p>
+<p>如果从更高层来看，UE5 的性能优化几乎都围绕两个核心思想展开：</p>
+<blockquote>
+<p><strong>Limit（限制）</strong></p>
+<p><strong>Cache（缓存）</strong></p>
+</blockquote>
+<p>一句话总结：</p>
+<blockquote>
+<p><strong>尽可能少算（Limit），尽可能不要重复算（Cache）。</strong></p>
+</blockquote>
+<hr>
+<h1 id="ue5-优化四个维度">UE5 优化四个维度</h1>
+<p>UE Renderer 几乎所有优化，都可以归纳到下面四个维度。</p>
+<table>
+	<thead>
+			<tr>
+					<th>优化维度</th>
+					<th>主要目标</th>
+					<th>典型技术</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>空间域（Spatial Domain）</strong></td>
+					<td>少画、不画</td>
+					<td>Cull、LOD、HLOD、HISM、World Partition、GPU Scene</td>
+			</tr>
+			<tr>
+					<td><strong>分辨率域（Resolution Domain）</strong></td>
+					<td>少计算 Pixel</td>
+					<td>Dynamic Resolution、TSR、FSR、Screen Percentage</td>
+			</tr>
+			<tr>
+					<td><strong>时间域（Temporal Domain）</strong></td>
+					<td>少更新</td>
+					<td>TAA、TSR、Animation Budget、Tick Budget、多帧累积</td>
+			</tr>
+			<tr>
+					<td><strong>光照域（Lighting Domain）</strong></td>
+					<td>少计算 Lighting</td>
+					<td>Lightmap、Reflection Capture、Lumen Budget、Shadow Budget</td>
+			</tr>
+	</tbody>
+</table>
+<p>可以理解为：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>                Performance
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        ┌──────── Spatial ────────┐
+</span></span><span style="display:flex;"><span>        │      少画（Cull）        │
+</span></span><span style="display:flex;"><span>        └──────────────────────────┘
+</span></span><span style="display:flex;"><span>                    │
+</span></span><span style="display:flex;"><span>        ┌────── Resolution ───────┐
+</span></span><span style="display:flex;"><span>        │     少算 Pixel          │
+</span></span><span style="display:flex;"><span>        └──────────────────────────┘
+</span></span><span style="display:flex;"><span>                    │
+</span></span><span style="display:flex;"><span>        ┌──────── Temporal ───────┐
+</span></span><span style="display:flex;"><span>        │     少更新              │
+</span></span><span style="display:flex;"><span>        └──────────────────────────┘
+</span></span><span style="display:flex;"><span>                    │
+</span></span><span style="display:flex;"><span>        ┌──────── Lighting ───────┐
+</span></span><span style="display:flex;"><span>        │     少算 Lighting       │
+</span></span><span style="display:flex;"><span>        └──────────────────────────┘
+</span></span></code></pre></div><hr>
+<h1 id="一空间域spatial-domain">一、空间域（Spatial Domain）</h1>
+<p>空间域解决的问题：</p>
+<blockquote>
+<p><strong>哪些东西根本不用画？</strong></p>
+</blockquote>
+<p>这是收益最高的一层优化。</p>
+<h2 id="常见技术">常见技术</h2>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+					<th>作用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Frustum Culling</td>
+					<td>视锥剔除</td>
+			</tr>
+			<tr>
+					<td>Occlusion Culling</td>
+					<td>遮挡剔除</td>
+			</tr>
+			<tr>
+					<td>Distance Culling</td>
+					<td>距离剔除</td>
+			</tr>
+			<tr>
+					<td>LOD</td>
+					<td>模型降级</td>
+			</tr>
+			<tr>
+					<td>HLOD</td>
+					<td>合并远景</td>
+			</tr>
+			<tr>
+					<td>HISM / ISM</td>
+					<td>自动实例化</td>
+			</tr>
+			<tr>
+					<td>Foliage</td>
+					<td>植被批处理</td>
+			</tr>
+			<tr>
+					<td>World Partition</td>
+					<td>世界分块</td>
+			</tr>
+			<tr>
+					<td>GPU Scene</td>
+					<td>GPU 场景管理</td>
+			</tr>
+			<tr>
+					<td>Primitive Octree</td>
+					<td>空间索引</td>
+			</tr>
+	</tbody>
+</table>
+<p>一句话：</p>
+<blockquote>
+<p><strong>看不见的不画，远处画得更简单。</strong></p>
+</blockquote>
+<hr>
+<h1 id="二分辨率域resolution-domain">二、分辨率域（Resolution Domain）</h1>
+<p>分辨率域解决：</p>
+<blockquote>
+<p><strong>每一个 Pixel 是否都值得计算？</strong></p>
+</blockquote>
+<h2 id="常见技术-1">常见技术</h2>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+					<th>作用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Dynamic Resolution</td>
+					<td>动态分辨率</td>
+			</tr>
+			<tr>
+					<td>TSR</td>
+					<td>Temporal Super Resolution</td>
+			</tr>
+			<tr>
+					<td>AMD FSR</td>
+					<td>FidelityFX Super Resolution</td>
+			</tr>
+			<tr>
+					<td>Mobile FSR</td>
+					<td>移动端超分</td>
+			</tr>
+			<tr>
+					<td>Screen Percentage</td>
+					<td>屏幕百分比</td>
+			</tr>
+			<tr>
+					<td>Secondary Resolution</td>
+					<td>中间分辨率</td>
+			</tr>
+			<tr>
+					<td>Upscale</td>
+					<td>图像重建</td>
+			</tr>
+	</tbody>
+</table>
+<p>一句话：</p>
+<blockquote>
+<p><strong>不是所有像素都必须按最终分辨率计算。</strong></p>
+</blockquote>
+<hr>
+<h1 id="三时间域temporal-domain">三、时间域（Temporal Domain）</h1>
+<p>时间域解决：</p>
+<blockquote>
+<p><strong>是不是每一帧都必须重新计算？</strong></p>
+</blockquote>
+<p>很多数据其实可以跨帧复用。</p>
+<h2 id="常见技术-2">常见技术</h2>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+					<th>作用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>TSR</td>
+					<td>时间域重建</td>
+			</tr>
+			<tr>
+					<td>TAA</td>
+					<td>Temporal Anti-Aliasing</td>
+			</tr>
+			<tr>
+					<td>Animation Budget Allocator</td>
+					<td>动画预算分配</td>
+			</tr>
+			<tr>
+					<td>Tick Interval</td>
+					<td>Tick 降频</td>
+			</tr>
+			<tr>
+					<td>Multi-frame Accumulation</td>
+					<td>多帧累积</td>
+			</tr>
+			<tr>
+					<td>Async Update</td>
+					<td>异步更新</td>
+			</tr>
+			<tr>
+					<td>Significance Manager</td>
+					<td>重要性驱动更新</td>
+			</tr>
+	</tbody>
+</table>
+<p>一句话：</p>
+<blockquote>
+<p><strong>能复用上一帧，就不要重新计算。</strong></p>
+</blockquote>
+<hr>
+<h1 id="四光照域lighting-domain">四、光照域（Lighting Domain）</h1>
+<p>光照域解决：</p>
+<blockquote>
+<p><strong>是否必须实时计算光照？</strong></p>
+</blockquote>
+<h2 id="常见技术-3">常见技术</h2>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+					<th>作用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Lightmap</td>
+					<td>光照烘焙</td>
+			</tr>
+			<tr>
+					<td>Reflection Capture</td>
+					<td>反射缓存</td>
+			</tr>
+			<tr>
+					<td>Shadow Cache</td>
+					<td>阴影缓存</td>
+			</tr>
+			<tr>
+					<td>Lumen Budget</td>
+					<td>Lumen 预算</td>
+			</tr>
+			<tr>
+					<td>Virtual Shadow Map</td>
+					<td>阴影优化</td>
+			</tr>
+			<tr>
+					<td>Skylight Cache</td>
+					<td>环境光缓存</td>
+			</tr>
+	</tbody>
+</table>
+<p>一句话：</p>
+<blockquote>
+<p><strong>静态光照尽量预计算，动态光照控制预算。</strong></p>
+</blockquote>
+<hr>
+<h1 id="商业项目常见优化技术">商业项目常见优化技术</h1>
+<p>下面这些几乎覆盖了商业级 UE 项目的核心优化方案。</p>
+<table>
+	<thead>
+			<tr>
+					<th>分类</th>
+					<th>技术</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Rendering</td>
+					<td>前向渲染（Forward）、延迟渲染（Deferred）</td>
+			</tr>
+			<tr>
+					<td>Upscaling</td>
+					<td>AMD FSR、Mobile FSR、TSR</td>
+			</tr>
+			<tr>
+					<td>Rendering Budget</td>
+					<td>动态分辨率、帧率调校</td>
+			</tr>
+			<tr>
+					<td>Instancing</td>
+					<td>HISM、ISM、自动实例化</td>
+			</tr>
+			<tr>
+					<td>Animation</td>
+					<td>Animation Budget Allocator</td>
+			</tr>
+			<tr>
+					<td>Material</td>
+					<td>Material Quality Level、Shader Quality</td>
+			</tr>
+			<tr>
+					<td>Streaming</td>
+					<td>World Partition、Texture Streaming</td>
+			</tr>
+			<tr>
+					<td>Shader</td>
+					<td>PSO Precache、Shader Pipeline Cache</td>
+			</tr>
+			<tr>
+					<td>Device</td>
+					<td>Device Profiles</td>
+			</tr>
+			<tr>
+					<td>Analysis</td>
+					<td>Unreal Insights、RenderDoc、MemReport</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="ue5-的核心优化手段">UE5 的核心优化手段</h1>
+<p>如果继续抽象，可以归纳为下面几类。</p>
+<table>
+	<thead>
+			<tr>
+					<th>优化策略</th>
+					<th>UE 典型技术</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>预加载（Preload）</strong></td>
+					<td>Async Loading、PSO Precache、Asset Manager</td>
+			</tr>
+			<tr>
+					<td><strong>预计算（Precompute）</strong></td>
+					<td>Lightmap、Reflection Capture、HLOD</td>
+			</tr>
+			<tr>
+					<td><strong>缓存（Cache）</strong></td>
+					<td>GPU Scene、Shadow Cache、PSO Cache</td>
+			</tr>
+			<tr>
+					<td><strong>并行（Parallel）</strong></td>
+					<td>Task Graph、RDG、Async Compute</td>
+			</tr>
+			<tr>
+					<td><strong>跨帧复用（Temporal）</strong></td>
+					<td>TSR、TAA、History Buffer</td>
+			</tr>
+			<tr>
+					<td><strong>降频更新（Reduce Frequency）</strong></td>
+					<td>Tick Interval、Animation Budget</td>
+			</tr>
+			<tr>
+					<td><strong>预算限制（Budget）</strong></td>
+					<td>Dynamic Resolution、Material Quality、Lumen Budget</td>
+			</tr>
+			<tr>
+					<td><strong>空间裁剪（Cull）</strong></td>
+					<td>Frustum、Occlusion、Distance Culling</td>
+			</tr>
+			<tr>
+					<td><strong>实例化（Instance）</strong></td>
+					<td>ISM、HISM、Foliage</td>
+			</tr>
+			<tr>
+					<td><strong>Profiling（分析）</strong></td>
+					<td>Unreal Insights、RenderDoc、MemReport、DumpTicks</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="gameplay-层的优化系统">Gameplay 层的优化系统</h1>
+<p>除了 Renderer，Gameplay 也有自己的预算管理系统。</p>
+<table>
+	<thead>
+			<tr>
+					<th>系统</th>
+					<th>作用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Significance Manager</td>
+					<td>根据重要性动态调整对象更新频率</td>
+			</tr>
+			<tr>
+					<td>Animation Budget Allocator</td>
+					<td>动画预算控制</td>
+			</tr>
+			<tr>
+					<td>Iris Networking</td>
+					<td>新一代网络同步系统</td>
+			</tr>
+			<tr>
+					<td>Mass Framework</td>
+					<td>大规模实体管理</td>
+			</tr>
+			<tr>
+					<td>Gameplay Ability System</td>
+					<td>能力系统（减少重复逻辑）</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="profiling-工具">Profiling 工具</h1>
+<p>优化之前，必须先 Profiling。</p>
+<table>
+	<thead>
+			<tr>
+					<th>工具</th>
+					<th>分析内容</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Unreal Insights</td>
+					<td>CPU / Task / Thread</td>
+			</tr>
+			<tr>
+					<td>RenderDoc</td>
+					<td>GPU Frame</td>
+			</tr>
+			<tr>
+					<td>PIX / Nsight</td>
+					<td>GPU 调试</td>
+			</tr>
+			<tr>
+					<td>MemReport</td>
+					<td>内存</td>
+			</tr>
+			<tr>
+					<td>DumpTicks</td>
+					<td>Tick 分析</td>
+			</tr>
+			<tr>
+					<td>Stat GPU</td>
+					<td>GPU 时间</td>
+			</tr>
+			<tr>
+					<td>Stat Unit</td>
+					<td>CPU / GPU</td>
+			</tr>
+			<tr>
+					<td>Stat Streaming</td>
+					<td>Streaming</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="ue5-优化思想总结">UE5 优化思想总结</h1>
+<p>如果把 UE5 的所有优化技术放到一个框架里，可以归纳为：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>                   Performance
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>                         │
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>              Profiling（定位瓶颈）
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>                         │
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      ┌────────────────────────────────┐
+</span></span><span style="display:flex;"><span>      │                                │
+</span></span><span style="display:flex;"><span>      ▼                                ▼
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      Limit（限制）                Cache（缓存）
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      少画                         不重复算
+</span></span><span style="display:flex;"><span>      少更新                       跨帧复用
+</span></span><span style="display:flex;"><span>      少计算                       预计算
+</span></span><span style="display:flex;"><span>      少上传                       预加载
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      │                                │
+</span></span><span style="display:flex;"><span>      └────────────────────────────────┘
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>                         │
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>         Spatial / Resolution / Temporal / Lighting
+</span></span></code></pre></div><hr>
+<h1 id="总结">总结</h1>
+<p>商业级 Unreal Engine 项目的优化，本质上并不是不断发明新的算法，而是在不同维度回答四个问题：</p>
+<ul>
+<li><strong>空间域（Spatial）</strong>：什么不需要画？</li>
+<li><strong>分辨率域（Resolution）</strong>：什么不需要按最高分辨率画？</li>
+<li><strong>时间域（Temporal）</strong>：什么不需要每帧重新计算？</li>
+<li><strong>光照域（Lighting）</strong>：什么不需要实时计算？</li>
+</ul>
+<p>最终，这些优化都会落到两个核心原则上：</p>
+<blockquote>
+<p><strong>Limit（限制）</strong>：减少需要处理的数据。</p>
+</blockquote>
+<blockquote>
+<p><strong>Cache（缓存）</strong>：避免重复计算已经得到的结果。</p>
+</blockquote>
+<p>这也是理解 UE5 Renderer、World Partition、GPU Scene、TSR、Lumen、HLOD 等技术背后共同设计思想的一把钥匙。</p>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/ue5/">UE5</a></li>
+        <li><a href="/tags/optimization/">Optimization</a></li>
+        <li><a href="/tags/rendering/">Rendering</a></li>
+        <li><a href="/tags/mobile/">Mobile</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>

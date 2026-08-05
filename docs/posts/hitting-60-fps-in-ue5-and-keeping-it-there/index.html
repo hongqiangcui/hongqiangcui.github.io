@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Hitting 60 FPS in UE5：60 FPS Engineering Checklist | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>Hitting 60 FPS in UE5：60 FPS Engineering Checklist</h1>
+
+  
+  
+  <time datetime="2026-08-05T00:00:00&#43;00:00">August 5, 2026</time>
+
+  <h1 id="hitting-60-fps-in-ue5">Hitting 60 FPS in UE5</h1>
+<p>Epic 在 GDC 分享的 <strong>《Hitting 60 FPS in UE5 and Keeping It There》</strong> 并不是一场 Renderer 优化课程。</p>
+<p>它真正想表达的是：</p>
+<blockquote>
+<p><strong>60 FPS 不是 Renderer 做出来的，而是整个项目从 Day-1 就共同设计出来的。</strong></p>
+</blockquote>
+<p>也就是说：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Stable 60 FPS
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>≠
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Renderer Optimization
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>=
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Whole Project Engineering
+</span></span></code></pre></div><p>整个 UE5 项目，都应该围绕：</p>
+<blockquote>
+<p><strong>Budget（预算）</strong></p>
+</blockquote>
+<p>进行设计。</p>
+<hr>
+<h1 id="ue5-60-fps-engineering-checklist">UE5 60 FPS Engineering Checklist</h1>
+<p>Epic 基本把一个商业项目拆成下面几个模块。</p>
+<table>
+	<thead>
+			<tr>
+					<th>系统</th>
+					<th>重点关注</th>
+					<th>核心关键词</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>🌍 World Building</td>
+					<td>世界是否足够高效</td>
+					<td>PCG、World Partition、HLOD、Async Budget</td>
+			</tr>
+			<tr>
+					<td>🎮 Gameplay</td>
+					<td>Gameplay 是否可扩展</td>
+					<td>Blueprint、C++、Modular Gameplay、Movement</td>
+			</tr>
+			<tr>
+					<td>🤖 AI</td>
+					<td>AI 是否能规模化</td>
+					<td>State Tree、Navigation、Mass</td>
+			</tr>
+			<tr>
+					<td>🕺 Animation</td>
+					<td>动画是否可预算化</td>
+					<td>Parallel Animation、Contextual Animation、Modular Animation</td>
+			</tr>
+			<tr>
+					<td>💥 Simulation</td>
+					<td>模拟是否可控制</td>
+					<td>Destruction、Physics、Trace Channel</td>
+			</tr>
+			<tr>
+					<td>🎨 Rendering</td>
+					<td>Renderer 是否有预算</td>
+					<td>Geometry、Lighting、Shadow、Upscaling</td>
+			</tr>
+			<tr>
+					<td>🌤 Rendering Details</td>
+					<td>Renderer 是否足够轻</td>
+					<td>Texture Streaming、Atmosphere、Post Process</td>
+			</tr>
+			<tr>
+					<td>☀ Time of Day</td>
+					<td>光照是否预算化</td>
+					<td>Dynamic Lighting、Sky、Exposure</td>
+			</tr>
+			<tr>
+					<td>⚡ PSO</td>
+					<td>Shader 是否不卡顿</td>
+					<td>PSO Bundle、Precache</td>
+			</tr>
+			<tr>
+					<td>🖥 UI</td>
+					<td>UI 是否不会拖慢 GPU</td>
+					<td>MVVM、Invalidation</td>
+			</tr>
+			<tr>
+					<td>✨ Niagara</td>
+					<td>特效是否预算化</td>
+					<td>Lightweight Emitters、Effect Type</td>
+			</tr>
+			<tr>
+					<td>⚙ Scalability</td>
+					<td>是否支持不同设备</td>
+					<td>Device Profiles、Quality Levels</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="一world-building">一、World Building</h1>
+<p>世界设计决定了：</p>
+<blockquote>
+<p>Renderer 有没有机会快。</p>
+</blockquote>
+<p>Epic 推荐：</p>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+					<th>目的</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>PCG</td>
+					<td>自动生成内容</td>
+			</tr>
+			<tr>
+					<td>World Partition</td>
+					<td>世界 Streaming</td>
+			</tr>
+			<tr>
+					<td>HLOD</td>
+					<td>合并远景</td>
+			</tr>
+			<tr>
+					<td>Async Budget</td>
+					<td>Streaming Budget</td>
+			</tr>
+	</tbody>
+</table>
+<p>重点思想：</p>
+<blockquote>
+<p>世界越大，</p>
+</blockquote>
+<p>越需要：</p>
+<blockquote>
+<p>Streaming。</p>
+</blockquote>
+<p>而不是：</p>
+<blockquote>
+<p>一次加载全部。</p>
+</blockquote>
+<hr>
+<h1 id="二gameplay">二、Gameplay</h1>
+<p>Gameplay 也是性能。</p>
+<p>Epic 建议：</p>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+					<th>目的</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Blueprint</td>
+					<td>快速开发</td>
+			</tr>
+			<tr>
+					<td>C++</td>
+					<td>高性能</td>
+			</tr>
+			<tr>
+					<td>Modular Gameplay</td>
+					<td>模块化</td>
+			</tr>
+			<tr>
+					<td>Character Movement</td>
+					<td>控制 Tick</td>
+			</tr>
+	</tbody>
+</table>
+<p>重点：</p>
+<p>不要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>所有东西：
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Every Tick
+</span></span></code></pre></div><hr>
+<h1 id="三game-ai">三、Game AI</h1>
+<p>现代 UE5：</p>
+<p>推荐：</p>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+					<th>用途</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>State Tree</td>
+					<td>新一代 AI State Machine</td>
+			</tr>
+			<tr>
+					<td>Navigation</td>
+					<td>导航</td>
+			</tr>
+			<tr>
+					<td>Mass Framework</td>
+					<td>大规模 NPC</td>
+			</tr>
+	</tbody>
+</table>
+<p>Mass：</p>
+<p>就是：</p>
+<p>为了：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>1000 NPC
+</span></span></code></pre></div><p>而设计。</p>
+<hr>
+<h1 id="四animation">四、Animation</h1>
+<p>Epic 提出的几个问题：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>In-engine?
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Contextual?
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Parallel?
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Modularity?
+</span></span></code></pre></div><p>其实对应：</p>
+<p>Animation：</p>
+<p>是不是：</p>
+<blockquote>
+<p>可预算。</p>
+</blockquote>
+<p>重点：</p>
+<ul>
+<li>Parallel Animation</li>
+<li>Animation Budget Allocator</li>
+<li>Contextual Animation</li>
+<li>Modular Character</li>
+</ul>
+<hr>
+<h1 id="五simulation">五、Simulation</h1>
+<p>包括：</p>
+<ul>
+<li>Physics</li>
+<li>Chaos</li>
+<li>Destruction</li>
+</ul>
+<p>重点：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>复杂度
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>预算
+</span></span></code></pre></div><p>例如：</p>
+<p>Trace：</p>
+<p>不要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>ECC_ALL
+</span></span></code></pre></div><p>应该：</p>
+<p>合理：</p>
+<p>Object Channel。</p>
+<hr>
+<h1 id="六rendering">六、Rendering</h1>
+<p>Renderer：</p>
+<p>不是：</p>
+<p>画得越好。</p>
+<p>而是：</p>
+<p>预算：</p>
+<p>是否：</p>
+<p>合理。</p>
+<p>Epic：</p>
+<p>主要关注：</p>
+<table>
+	<thead>
+			<tr>
+					<th>模块</th>
+					<th>技术</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Geometry</td>
+					<td>Nanite</td>
+			</tr>
+			<tr>
+					<td>Lighting</td>
+					<td>Lumen</td>
+			</tr>
+			<tr>
+					<td>Shadow</td>
+					<td>VSM</td>
+			</tr>
+			<tr>
+					<td>Upscaling</td>
+					<td>TSR</td>
+			</tr>
+	</tbody>
+</table>
+<p>Renderer：</p>
+<p>始终：</p>
+<p>围绕：</p>
+<p>Budget。</p>
+<hr>
+<h1 id="nanite">Nanite</h1>
+<p>Nanite：</p>
+<p>并不是：</p>
+<p>无限面数。</p>
+<p>Epic：</p>
+<p>特别强调：</p>
+<table>
+	<thead>
+			<tr>
+					<th>检查项</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>LOD Fallback</td>
+			</tr>
+			<tr>
+					<td>Material Hierarchy</td>
+			</tr>
+			<tr>
+					<td>Modularity</td>
+			</tr>
+	</tbody>
+</table>
+<p>重点：</p>
+<p>Nanite：</p>
+<p>也需要：</p>
+<p>Budget。</p>
+<hr>
+<h1 id="lumen">Lumen</h1>
+<p>重点：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>HWRT
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>vs
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>SWRT
+</span></span></code></pre></div><p>以及：</p>
+<p>Reflection。</p>
+<p>不是：</p>
+<p>所有平台：</p>
+<p>都：</p>
+<p>HWRT。</p>
+<hr>
+<h1 id="shadow">Shadow</h1>
+<p>Epic：</p>
+<p>建议：</p>
+<p>根据：</p>
+<p>项目：</p>
+<p>选择：</p>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Virtual Shadow Maps</td>
+			</tr>
+			<tr>
+					<td>Megalights</td>
+			</tr>
+	</tbody>
+</table>
+<p>重点：</p>
+<p>Shadow：</p>
+<p>预算：</p>
+<p>通常：</p>
+<p>比：</p>
+<p>Lighting：</p>
+<p>更贵。</p>
+<hr>
+<h1 id="upscaling">Upscaling</h1>
+<p>Epic：</p>
+<p>建议：</p>
+<p>统一：</p>
+<p>Upscaling Strategy。</p>
+<p>包括：</p>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>TSR</td>
+			</tr>
+			<tr>
+					<td>TAA</td>
+			</tr>
+			<tr>
+					<td>FXAA</td>
+			</tr>
+			<tr>
+					<td>MSAA</td>
+			</tr>
+			<tr>
+					<td>DLSS</td>
+			</tr>
+			<tr>
+					<td>FSR</td>
+			</tr>
+	</tbody>
+</table>
+<p>不要：</p>
+<p>项目：</p>
+<p>里面：</p>
+<p>多个：</p>
+<p>混用。</p>
+<hr>
+<h1 id="rendering-considerations">Rendering Considerations</h1>
+<p>除了：</p>
+<p>Renderer。</p>
+<p>还有：</p>
+<p>很多：</p>
+<p>隐藏：</p>
+<p>成本。</p>
+<hr>
+<h2 id="texture-streaming">Texture Streaming</h2>
+<p>重点：</p>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Virtual Texture</td>
+			</tr>
+			<tr>
+					<td>Pool Size</td>
+			</tr>
+			<tr>
+					<td>Runtime Streaming</td>
+			</tr>
+			<tr>
+					<td>Responsiveness</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h2 id="atmospherics">Atmospherics</h2>
+<p>包括：</p>
+<ul>
+<li>Fog</li>
+<li>Clouds</li>
+<li>Sky Scattering</li>
+</ul>
+<p>这些：</p>
+<p>GPU：</p>
+<p>成本：</p>
+<p>非常高。</p>
+<hr>
+<h2 id="post-processing">Post Processing</h2>
+<p>重点：</p>
+<ul>
+<li>Color Grading</li>
+<li>Bloom</li>
+<li>Resolution</li>
+<li>Utilization</li>
+</ul>
+<hr>
+<h1 id="time-of-day">Time Of Day</h1>
+<p>Epic：</p>
+<p>建议：</p>
+<p>Time Of Day：</p>
+<p>不要：</p>
+<p>无限：</p>
+<p>实时。</p>
+<p>而是：</p>
+<p>预算。</p>
+<p>例如：</p>
+<p>Sky Update：</p>
+<p>可以：</p>
+<p>降频。</p>
+<hr>
+<h1 id="pso">PSO</h1>
+<p>Epic：</p>
+<p>今年：</p>
+<p>最大的建议：</p>
+<p>就是：</p>
+<p>PSO。</p>
+<p>包括：</p>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Bundling</td>
+			</tr>
+			<tr>
+					<td>Precache</td>
+			</tr>
+			<tr>
+					<td>Hybrid</td>
+			</tr>
+	</tbody>
+</table>
+<p>目标：</p>
+<p>避免：</p>
+<p>Shader Hitch。</p>
+<hr>
+<h1 id="ui">UI</h1>
+<p>UI：</p>
+<p>不要：</p>
+<p>每帧：</p>
+<p>重新：</p>
+<p>Layout。</p>
+<p>推荐：</p>
+<p>MVVM：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Model
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>ViewModel
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>View
+</span></span></code></pre></div><p>以及：</p>
+<p>Invalidation。</p>
+<hr>
+<h1 id="niagara">Niagara</h1>
+<p>重点：</p>
+<p>不是：</p>
+<p>Emitter。</p>
+<p>而是：</p>
+<p>Budget。</p>
+<p>Epic：</p>
+<p>推荐：</p>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Systems as a Service</td>
+			</tr>
+			<tr>
+					<td>Lightweight Emitters</td>
+			</tr>
+			<tr>
+					<td>Effect Type</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="scalability">Scalability</h1>
+<p>Epic：</p>
+<p>最后：</p>
+<p>强调：</p>
+<p>Scalability。</p>
+<p>任何：</p>
+<p>Feature。</p>
+<p>都：</p>
+<p>应该：</p>
+<p>支持：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Low
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Medium
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>High
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Epic
+</span></span></code></pre></div><p>而不是：</p>
+<p>固定：</p>
+<p>一种：</p>
+<p>配置。</p>
+<hr>
+<h1 id="view-modes性能分析">View Modes（性能分析）</h1>
+<p>Epic 推荐：</p>
+<p>开发阶段经常切换 View Modes。</p>
+<table>
+	<thead>
+			<tr>
+					<th>View Mode</th>
+					<th>用途</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Instance Overlap</td>
+					<td>检查实例重叠</td>
+			</tr>
+			<tr>
+					<td>Lumen Performance</td>
+					<td>Lumen 开销</td>
+			</tr>
+			<tr>
+					<td>Nanite Overdraw</td>
+					<td>Nanite Over绘制</td>
+			</tr>
+			<tr>
+					<td>WPO Enabled</td>
+					<td>World Position Offset</td>
+			</tr>
+			<tr>
+					<td>Light Complexity</td>
+					<td>光照复杂度</td>
+			</tr>
+			<tr>
+					<td>SMRT Visualization</td>
+					<td>Shadow Map Ray Tracing</td>
+			</tr>
+			<tr>
+					<td>Stack Count</td>
+					<td>材质层数</td>
+			</tr>
+			<tr>
+					<td>Material Count</td>
+					<td>材质数量</td>
+			</tr>
+	</tbody>
+</table>
+<p>这些 View Modes 能快速发现：</p>
+<ul>
+<li>哪些区域实例过密</li>
+<li>哪些区域材质过于复杂</li>
+<li>哪些区域光照成本过高</li>
+<li>哪些 Mesh 存在大量 WPO 或 Nanite Overdraw</li>
+</ul>
+<hr>
+<h1 id="60-fps-的真正含义">60 FPS 的真正含义</h1>
+<p>Epic 想表达的并不是：</p>
+<blockquote>
+<p>Renderer 如何跑到 60 FPS。</p>
+</blockquote>
+<p>而是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>整个项目
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>共同维护
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Performance Budget
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>持续保持
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>60 FPS
+</span></span></code></pre></div><p>Renderer、</p>
+<p>Gameplay、</p>
+<p>Animation、</p>
+<p>AI、</p>
+<p>Streaming、</p>
+<p>PSO、</p>
+<p>UI、</p>
+<p>Niagara、</p>
+<p>Scalability，</p>
+<p>每一个模块，</p>
+<p>都需要：</p>
+<p>遵守：</p>
+<p>自己的：</p>
+<p>Budget。</p>
+<hr>
+<h1 id="总结">总结</h1>
+<p>Epic 在《Hitting 60 FPS in UE5 and Keeping It There》中传递的核心思想可以总结为一句话：</p>
+<blockquote>
+<p><strong>60 FPS 不是 Renderer 的目标，而是整个项目的工程目标（Engineering Goal）。</strong></p>
+</blockquote>
+<p>每个系统都需要围绕预算（Budget）设计：</p>
+<ul>
+<li>世界需要 Streaming Budget。</li>
+<li>Gameplay 需要 Tick Budget。</li>
+<li>Animation 需要 Animation Budget。</li>
+<li>Renderer 需要 GPU Budget。</li>
+<li>Shader 需要 PSO Budget。</li>
+<li>UI 需要 Layout Budget。</li>
+<li>Niagara 需要 FX Budget。</li>
+</ul>
+<p>最终，通过各系统共同遵守预算，才能真正实现并持续保持稳定的 60 FPS。</p>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/ue5/">UE5</a></li>
+        <li><a href="/tags/performance/">Performance</a></li>
+        <li><a href="/tags/optimization/">Optimization</a></li>
+        <li><a href="/tags/rendering/">Rendering</a></li>
+        <li><a href="/tags/mobile/">Mobile</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>

@@ -21,11 +21,39 @@
 				<description>&lt;p&gt;这是第一篇博客。&lt;/p&gt;</description>
 			</item>
 			<item>
+				<title>Hitting 60 FPS in UE5：60 FPS Engineering Checklist</title>
+				<link>http://localhost:1313/posts/hitting-60-fps-in-ue5-and-keeping-it-there/</link>
+				<pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/hitting-60-fps-in-ue5-and-keeping-it-there/</guid>
+				<description>结合 Epic GDC《Hitting 60 FPS in UE5 and Keeping It There》，总结商业级 UE5 项目实现稳定 60 FPS 的整体工程体系。</description>
+			</item>
+			<item>
+				<title>Tuning Your Unreal Engine 5 Game for Mobile Deployment：移动端配置与调优体系</title>
+				<link>http://localhost:1313/posts/tuning-your-unreal-engine-5-game-for-mobile-deployment/</link>
+				<pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/tuning-your-unreal-engine-5-game-for-mobile-deployment/</guid>
+				<description>结合 Epic《Tuning Your Unreal Engine 5 Game for Mobile Deployment》，总结 UE5 移动端配置、内容变体、Profiling 与自动化调优体系。</description>
+			</item>
+			<item>
 				<title>UE 商业项目常见扩展点（最终版大表）</title>
 				<link>http://localhost:1313/posts/ue_%E5%95%86%E4%B8%9A%E9%A1%B9%E7%9B%AE%E5%B8%B8%E8%A7%81%E6%89%A9%E5%B1%95%E7%82%B9_%E6%9C%80%E7%BB%88%E7%89%88_gfm/</link>
 				<pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate>
 				<guid>http://localhost:1313/posts/ue_%E5%95%86%E4%B8%9A%E9%A1%B9%E7%9B%AE%E5%B8%B8%E8%A7%81%E6%89%A9%E5%B1%95%E7%82%B9_%E6%9C%80%E7%BB%88%E7%89%88_gfm/</guid>
 				<description>整理商业 UE 项目最常见的扩展入口与 Override 点。</description>
+			</item>
+			<item>
+				<title>UE5 Engine Atlas（UE5 引擎地图）</title>
+				<link>http://localhost:1313/posts/ue5-engine-atlas/</link>
+				<pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/ue5-engine-atlas/</guid>
+				<description>构建 Unreal Engine 5 的完整知识地图，从 Gameplay 到 Renderer，从 World 到 Performance，建立系统化的 UE5 学习框架。</description>
+			</item>
+			<item>
+				<title>UE5 Rendering Pass Atlas（渲染 Pass 图谱）</title>
+				<link>http://localhost:1313/posts/ue5-rendering-pass-atlas%E6%B8%B2%E6%9F%93-pass-%E5%9B%BE%E8%B0%B1/</link>
+				<pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/ue5-rendering-pass-atlas%E6%B8%B2%E6%9F%93-pass-%E5%9B%BE%E8%B0%B1/</guid>
+				<description>完整梳理 Unreal Engine 5 Renderer 中各类 Render Pass 的职责、输入输出以及所属模块，建立 Renderer 全景图。</description>
 			</item>
 			<item>
 				<title>UE5 优化分层模型（Optimization Layer Model）</title>
@@ -40,6 +68,13 @@
 				<pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate>
 				<guid>http://localhost:1313/posts/ue_builds_%E6%B1%87%E6%80%BB/</guid>
 				<description>总结 Unreal Engine 中 Launcher Build、GitHub Source Build 和 Installed Build 三种常见 Engine Build 的特点、区别及适用场景。</description>
+			</item>
+			<item>
+				<title>Unreal Engine 性能优化总纲：限制（Limit）与缓存（Cache）</title>
+				<link>http://localhost:1313/posts/ue%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E6%80%BB%E7%BA%B2%E9%99%90%E5%88%B6limit%E4%B8%8E%E7%BC%93%E5%AD%98cache/</link>
+				<pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/ue%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E6%80%BB%E7%BA%B2%E9%99%90%E5%88%B6limit%E4%B8%8E%E7%BC%93%E5%AD%98cache/</guid>
+				<description>总结 Unreal Engine 的性能优化思想，从空间域、时间域、分辨率域、光照域四个维度理解商业级项目的优化体系。</description>
 			</item>
 			<item>
 				<title>深入理解 UE5 Resolution Pipeline：Primary、Secondary 与 Final Resolution</title>

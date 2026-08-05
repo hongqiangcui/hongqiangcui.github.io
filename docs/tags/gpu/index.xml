@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>GPU on My New Hugo Project</title>
+		<link>http://localhost:1313/tags/gpu/</link>
+		<description>Recent content in GPU on My New Hugo Project</description>
+		<generator>Hugo</generator>
+		<language>en-us</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 05 Aug 2026 00:00:00 +0000</lastBuildDate>
+		
+			<atom:link href="http://localhost:1313/tags/gpu/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>UE5 Rendering Pass Atlas（渲染 Pass 图谱）</title>
+				<link>http://localhost:1313/posts/ue5-rendering-pass-atlas%E6%B8%B2%E6%9F%93-pass-%E5%9B%BE%E8%B0%B1/</link>
+				<pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/ue5-rendering-pass-atlas%E6%B8%B2%E6%9F%93-pass-%E5%9B%BE%E8%B0%B1/</guid>
+				<description>完整梳理 Unreal Engine 5 Renderer 中各类 Render Pass 的职责、输入输出以及所属模块，建立 Renderer 全景图。</description>
+			</item>
+	</channel>
+</rss>

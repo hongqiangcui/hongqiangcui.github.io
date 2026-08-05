@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Device Profiles on My New Hugo Project</title>
+		<link>http://localhost:1313/tags/device-profiles/</link>
+		<description>Recent content in Device Profiles on My New Hugo Project</description>
+		<generator>Hugo</generator>
+		<language>en-us</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 05 Aug 2026 00:00:00 +0000</lastBuildDate>
+		
+			<atom:link href="http://localhost:1313/tags/device-profiles/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Tuning Your Unreal Engine 5 Game for Mobile Deployment：移动端配置与调优体系</title>
+				<link>http://localhost:1313/posts/tuning-your-unreal-engine-5-game-for-mobile-deployment/</link>
+				<pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/tuning-your-unreal-engine-5-game-for-mobile-deployment/</guid>
+				<description>结合 Epic《Tuning Your Unreal Engine 5 Game for Mobile Deployment》，总结 UE5 移动端配置、内容变体、Profiling 与自动化调优体系。</description>
+			</item>
+	</channel>
+</rss>

@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>UE5 Rendering Pass Atlas（渲染 Pass 图谱） | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>UE5 Rendering Pass Atlas（渲染 Pass 图谱）</h1>
+
+  
+  
+  <time datetime="2026-08-05T00:00:00&#43;00:00">August 5, 2026</time>
+
+  <h1 id="ue5-rendering-pass-atlas渲染-pass-图谱">UE5 Rendering Pass Atlas（渲染 Pass 图谱）</h1>
+<p>很多开发者第一次打开：</p>
+<ul>
+<li>ProfileGPU</li>
+<li>RenderDoc</li>
+<li>PIX</li>
+<li>RDG Viewer</li>
+</ul>
+<p>都会看到几十甚至上百个 Pass。</p>
+<p>实际上，这些 Pass 并不是杂乱无章的。</p>
+<p>按照 Renderer 的职责，可以整理成下面这张图。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Scene Preparation
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>Visibility &amp; Culling
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>Shadow
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>Depth
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>Decal
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>Geometry
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>Lighting
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>Ray Tracing（Optional）
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>Composition
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>Post Processing
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>UI
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>Present
+</span></span></code></pre></div><hr>
+<h1 id="rendering-pass-atlas">Rendering Pass Atlas</h1>
+<table>
+	<thead>
+			<tr>
+					<th>Pass Family</th>
+					<th>常见 Pass</th>
+					<th>输入</th>
+					<th>输出</th>
+					<th>是否必经</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Scene Preparation</td>
+					<td>GPU Scene、Primitive Update、View Setup</td>
+					<td>World</td>
+					<td>Scene</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Visibility</td>
+					<td>Frustum、HZB、Occlusion、Instance Culling</td>
+					<td>Scene</td>
+					<td>Visible Primitive</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Shadow</td>
+					<td>Shadow Depth、VSM、CSM、Projection</td>
+					<td>Primitive</td>
+					<td>Shadow Atlas</td>
+					<td>△</td>
+			</tr>
+			<tr>
+					<td>Depth</td>
+					<td>Depth PrePass、CustomDepth、Stencil</td>
+					<td>Primitive</td>
+					<td>Depth Buffer</td>
+					<td>△</td>
+			</tr>
+			<tr>
+					<td>Decal</td>
+					<td>DBuffer、Deferred Decal</td>
+					<td>GBuffer</td>
+					<td>Modified GBuffer</td>
+					<td>△</td>
+			</tr>
+			<tr>
+					<td>Geometry</td>
+					<td>BasePass、Nanite、Velocity</td>
+					<td>Primitive</td>
+					<td>GBuffer</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Lighting</td>
+					<td>Deferred、Lumen、Reflection、SSAO</td>
+					<td>GBuffer</td>
+					<td>SceneColor</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Ray Tracing</td>
+					<td>HWRT、SWRT、PathTracing</td>
+					<td>BVH</td>
+					<td>Lighting</td>
+					<td>△</td>
+			</tr>
+			<tr>
+					<td>Composition</td>
+					<td>Sky、Cloud、Fog、Water、Hair、Niagara、Translucency</td>
+					<td>SceneColor</td>
+					<td>SceneColor</td>
+					<td>△</td>
+			</tr>
+			<tr>
+					<td>Post Processing</td>
+					<td>TSR、TAA、Bloom、DoF、Tonemap</td>
+					<td>SceneColor</td>
+					<td>FinalColor</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>UI</td>
+					<td>Slate、UMG、Debug</td>
+					<td>FinalColor</td>
+					<td>Backbuffer</td>
+					<td>△</td>
+			</tr>
+			<tr>
+					<td>Output</td>
+					<td>Resolve、Present</td>
+					<td>Backbuffer</td>
+					<td>Monitor</td>
+					<td>✅</td>
+			</tr>
+	</tbody>
+</table>
+<blockquote>
+<p><strong>说明</strong></p>
+<ul>
+<li>✅：绝大多数 Frame 都会执行。</li>
+<li>△：取决于项目配置、平台和渲染特性。</li>
+</ul>
+</blockquote>
+<hr>
+<h1 id="一scene-preparation">一、Scene Preparation</h1>
+<h2 id="目标">目标</h2>
+<p>准备本帧所有渲染数据。</p>
+<h2 id="典型-pass">典型 Pass</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Pass</th>
+					<th>作用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Primitive Update</td>
+					<td>更新 Primitive 数据</td>
+			</tr>
+			<tr>
+					<td>GPU Scene Upload</td>
+					<td>上传 GPU Scene</td>
+			</tr>
+			<tr>
+					<td>View Setup</td>
+					<td>创建 View Family</td>
+			</tr>
+			<tr>
+					<td>Uniform Buffer</td>
+					<td>更新 View 参数</td>
+			</tr>
+			<tr>
+					<td>Instance Upload</td>
+					<td>上传实例数据</td>
+			</tr>
+	</tbody>
+</table>
+<p>输入：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Game World
+</span></span></code></pre></div><p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Render Scene
+</span></span></code></pre></div><hr>
+<h1 id="二visibility--culling">二、Visibility &amp; Culling</h1>
+<p>回答：</p>
+<blockquote>
+<p><strong>哪些对象需要参与渲染？</strong></p>
+</blockquote>
+<h2 id="包括">包括</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Pass</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>PrimitiveOctree</td>
+			</tr>
+			<tr>
+					<td>Frustum Culling</td>
+			</tr>
+			<tr>
+					<td>Distance Culling</td>
+			</tr>
+			<tr>
+					<td>HLOD Selection</td>
+			</tr>
+			<tr>
+					<td>HZB</td>
+			</tr>
+			<tr>
+					<td>Occlusion Query</td>
+			</tr>
+			<tr>
+					<td>GPU Scene Visibility</td>
+			</tr>
+			<tr>
+					<td>Instance Culling</td>
+			</tr>
+	</tbody>
+</table>
+<p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Visible Primitive List
+</span></span></code></pre></div><hr>
+<h1 id="三shadow">三、Shadow</h1>
+<p>负责所有阴影。</p>
+<h2 id="包括-1">包括</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Pass</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Shadow Depth</td>
+			</tr>
+			<tr>
+					<td>Virtual Shadow Maps</td>
+			</tr>
+			<tr>
+					<td>Cascaded Shadow Maps</td>
+			</tr>
+			<tr>
+					<td>Per Object Shadow</td>
+			</tr>
+			<tr>
+					<td>Shadow Projection</td>
+			</tr>
+			<tr>
+					<td>Cached Shadow</td>
+			</tr>
+	</tbody>
+</table>
+<p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Shadow Atlas
+</span></span></code></pre></div><hr>
+<h1 id="四depth">四、Depth</h1>
+<p>建立：</p>
+<p>Depth Buffer。</p>
+<h2 id="包括-2">包括</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Pass</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Depth PrePass</td>
+			</tr>
+			<tr>
+					<td>Early-Z</td>
+			</tr>
+			<tr>
+					<td>CustomDepth</td>
+			</tr>
+			<tr>
+					<td>CustomStencil</td>
+			</tr>
+	</tbody>
+</table>
+<p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Depth Buffer
+</span></span></code></pre></div><hr>
+<h1 id="五decal贴花">五、Decal（贴花）</h1>
+<p>贴花负责修改 GBuffer。</p>
+<h2 id="dbuffer-decal">DBuffer Decal</h2>
+<p>流程：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Depth
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>DBuffer
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>BasePass
+</span></span></code></pre></div><p>修改：</p>
+<ul>
+<li>BaseColor</li>
+<li>Normal</li>
+<li>Roughness</li>
+</ul>
+<hr>
+<h2 id="deferred-decal">Deferred Decal</h2>
+<p>流程：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>BasePass
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Deferred Decal
+</span></span></code></pre></div><p>主要：</p>
+<ul>
+<li>Emissive</li>
+<li>Translucent Decal</li>
+</ul>
+<hr>
+<h1 id="六geometry">六、Geometry</h1>
+<p>真正开始 Rasterization。</p>
+<h2 id="包括-3">包括</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Pass</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>BasePass</td>
+			</tr>
+			<tr>
+					<td>Nanite Raster</td>
+			</tr>
+			<tr>
+					<td>Velocity</td>
+			</tr>
+			<tr>
+					<td>DBuffer Resolve</td>
+			</tr>
+			<tr>
+					<td>Mesh Draw Pass</td>
+			</tr>
+	</tbody>
+</table>
+<p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Depth
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Normal
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>BaseColor
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Roughness
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Metallic
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Velocity
+</span></span></code></pre></div><p>也就是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>GBuffer
+</span></span></code></pre></div><hr>
+<h1 id="七lighting">七、Lighting</h1>
+<p>负责所有光照计算。</p>
+<h2 id="包括-4">包括</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Pass</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Deferred Lighting</td>
+			</tr>
+			<tr>
+					<td>Lumen GI</td>
+			</tr>
+			<tr>
+					<td>Lumen Reflection</td>
+			</tr>
+			<tr>
+					<td>Reflection Environment</td>
+			</tr>
+			<tr>
+					<td>SSAO</td>
+			</tr>
+			<tr>
+					<td>Skylight</td>
+			</tr>
+			<tr>
+					<td>SSGI</td>
+			</tr>
+	</tbody>
+</table>
+<p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Scene Color
+</span></span></code></pre></div><hr>
+<h1 id="八ray-tracing">八、Ray Tracing</h1>
+<p>开启 RT 时：</p>
+<p>包括：</p>
+<table>
+	<thead>
+			<tr>
+					<th>Pass</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Hardware RT</td>
+			</tr>
+			<tr>
+					<td>Software RT</td>
+			</tr>
+			<tr>
+					<td>Lumen HWRT</td>
+			</tr>
+			<tr>
+					<td>RT Shadow</td>
+			</tr>
+			<tr>
+					<td>RT Reflection</td>
+			</tr>
+			<tr>
+					<td>Path Tracing</td>
+			</tr>
+	</tbody>
+</table>
+<p>不是：</p>
+<p>所有平台：</p>
+<p>都会执行。</p>
+<hr>
+<h1 id="九composition">九、Composition</h1>
+<p>开始：</p>
+<p>叠加：</p>
+<p>各种效果。</p>
+<h2 id="包括-5">包括</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Pass</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Sky Atmosphere</td>
+			</tr>
+			<tr>
+					<td>Exponential Height Fog</td>
+			</tr>
+			<tr>
+					<td>Volumetric Fog</td>
+			</tr>
+			<tr>
+					<td>Volumetric Cloud</td>
+			</tr>
+			<tr>
+					<td>Water</td>
+			</tr>
+			<tr>
+					<td>Hair Strands</td>
+			</tr>
+			<tr>
+					<td>Niagara</td>
+			</tr>
+			<tr>
+					<td>Translucency</td>
+			</tr>
+			<tr>
+					<td>Subsurface</td>
+			</tr>
+	</tbody>
+</table>
+<p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Scene Color
+</span></span></code></pre></div><hr>
+<h1 id="十post-processing">十、Post Processing</h1>
+<p>数量最多。</p>
+<h2 id="包括-6">包括</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Pass</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>TSR</td>
+			</tr>
+			<tr>
+					<td>TAA</td>
+			</tr>
+			<tr>
+					<td>FXAA</td>
+			</tr>
+			<tr>
+					<td>Motion Blur</td>
+			</tr>
+			<tr>
+					<td>Depth of Field</td>
+			</tr>
+			<tr>
+					<td>Bloom</td>
+			</tr>
+			<tr>
+					<td>Lens Flare</td>
+			</tr>
+			<tr>
+					<td>Chromatic Aberration</td>
+			</tr>
+			<tr>
+					<td>Auto Exposure</td>
+			</tr>
+			<tr>
+					<td>Tonemap</td>
+			</tr>
+			<tr>
+					<td>Color Grading</td>
+			</tr>
+			<tr>
+					<td>Vignette</td>
+			</tr>
+			<tr>
+					<td>Film Grain</td>
+			</tr>
+			<tr>
+					<td>Upscale</td>
+			</tr>
+	</tbody>
+</table>
+<p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Final Color
+</span></span></code></pre></div><hr>
+<h1 id="十一ui">十一、UI</h1>
+<p>最后：</p>
+<p>绘制：</p>
+<table>
+	<thead>
+			<tr>
+					<th>Pass</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Slate</td>
+			</tr>
+			<tr>
+					<td>UMG</td>
+			</tr>
+			<tr>
+					<td>Debug Overlay</td>
+			</tr>
+			<tr>
+					<td>Profiler</td>
+			</tr>
+	</tbody>
+</table>
+<p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Backbuffer
+</span></span></code></pre></div><hr>
+<h1 id="十二output">十二、Output</h1>
+<p>最终：</p>
+<p>包括：</p>
+<table>
+	<thead>
+			<tr>
+					<th>Pass</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Resolve</td>
+			</tr>
+			<tr>
+					<td>Present</td>
+			</tr>
+			<tr>
+					<td>SwapChain</td>
+			</tr>
+	</tbody>
+</table>
+<p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Monitor
+</span></span></code></pre></div><hr>
+<h1 id="pass-family-与-ue5-模块对应关系">Pass Family 与 UE5 模块对应关系</h1>
+<table>
+	<thead>
+			<tr>
+					<th>UE5 模块</th>
+					<th>主要 Pass</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>World Partition</td>
+					<td>Scene Preparation</td>
+			</tr>
+			<tr>
+					<td>GPU Scene</td>
+					<td>Scene + Visibility</td>
+			</tr>
+			<tr>
+					<td>PrimitiveOctree</td>
+					<td>Visibility</td>
+			</tr>
+			<tr>
+					<td>HLOD</td>
+					<td>Visibility</td>
+			</tr>
+			<tr>
+					<td>Nanite</td>
+					<td>Geometry</td>
+			</tr>
+			<tr>
+					<td>Mesh Draw Pipeline</td>
+					<td>Geometry</td>
+			</tr>
+			<tr>
+					<td>Virtual Shadow Maps</td>
+					<td>Shadow</td>
+			</tr>
+			<tr>
+					<td>Lumen</td>
+					<td>Lighting</td>
+			</tr>
+			<tr>
+					<td>Deferred Renderer</td>
+					<td>Lighting</td>
+			</tr>
+			<tr>
+					<td>SkyAtmosphere</td>
+					<td>Composition</td>
+			</tr>
+			<tr>
+					<td>Niagara</td>
+					<td>Composition</td>
+			</tr>
+			<tr>
+					<td>Water</td>
+					<td>Composition</td>
+			</tr>
+			<tr>
+					<td>Hair Strands</td>
+					<td>Composition</td>
+			</tr>
+			<tr>
+					<td>TSR</td>
+					<td>Post Processing</td>
+			</tr>
+			<tr>
+					<td>RDG</td>
+					<td>调度所有 Pass</td>
+			</tr>
+			<tr>
+					<td>Slate</td>
+					<td>UI</td>
+			</tr>
+			<tr>
+					<td>RHI</td>
+					<td>Output</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="gpu-时间主要花在哪里">GPU 时间主要花在哪里？</h1>
+<p>典型 Deferred Renderer：</p>
+<table>
+	<thead>
+			<tr>
+					<th>Pass Family</th>
+					<th>GPU 占比</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Visibility</td>
+					<td>★☆☆☆☆</td>
+			</tr>
+			<tr>
+					<td>Shadow</td>
+					<td>★★★★★</td>
+			</tr>
+			<tr>
+					<td>Geometry</td>
+					<td>★★★★★</td>
+			</tr>
+			<tr>
+					<td>Lighting</td>
+					<td>★★★★★</td>
+			</tr>
+			<tr>
+					<td>Ray Tracing</td>
+					<td>★★★★★（开启时）</td>
+			</tr>
+			<tr>
+					<td>Composition</td>
+					<td>★★★☆☆</td>
+			</tr>
+			<tr>
+					<td>Post Processing</td>
+					<td>★★★☆☆</td>
+			</tr>
+			<tr>
+					<td>UI</td>
+					<td>★☆☆☆☆</td>
+			</tr>
+			<tr>
+					<td>Output</td>
+					<td>★☆☆☆☆</td>
+			</tr>
+	</tbody>
+</table>
+<p>通常：</p>
+<ul>
+<li>Shadow</li>
+<li>Geometry</li>
+<li>Lighting</li>
+</ul>
+<p>三者占据 GPU 时间的大部分。</p>
+<hr>
+<h1 id="学习路线建议">学习路线建议</h1>
+<p>建议按下面顺序阅读源码：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Scene
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Visibility
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU Scene
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Mesh Draw Pipeline
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>BasePass
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Deferred Lighting
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Lumen
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Shadow
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Translucency
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Post Processing
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>RDG
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>RHI
+</span></span></code></pre></div><p>不要一开始就研究 Lumen 或 Nanite，而是先理解整个 Pass Atlas，再逐步深入各个模块。</p>
+<hr>
+<h1 id="总结">总结</h1>
+<p>UE5 Renderer 中数量众多的 Render Pass，本质上可以归纳为 12 个功能域：</p>
+<ol>
+<li>Scene Preparation</li>
+<li>Visibility &amp; Culling</li>
+<li>Shadow</li>
+<li>Depth</li>
+<li>Decal</li>
+<li>Geometry</li>
+<li>Lighting</li>
+<li>Ray Tracing</li>
+<li>Composition</li>
+<li>Post Processing</li>
+<li>UI</li>
+<li>Output</li>
+</ol>
+<p>理解这些 Pass Family 后，再阅读 RDG、RenderDoc 或 ProfileGPU，就能快速定位每个 Pass 的职责、输入输出以及性能开销。</p>
+<blockquote>
+<p><strong>一句话总结：</strong></p>
+<p><strong>Render Pass 是执行单元，Pass Family 是功能模块，而 RDG 则负责组织它们之间的依赖关系。</strong></p>
+</blockquote>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/ue5/">UE5</a></li>
+        <li><a href="/tags/rendering/">Rendering</a></li>
+        <li><a href="/tags/renderer/">Renderer</a></li>
+        <li><a href="/tags/rdg/">RDG</a></li>
+        <li><a href="/tags/gpu/">GPU</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>
