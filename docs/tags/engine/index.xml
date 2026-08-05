@@ -20,5 +20,12 @@
 				<guid>http://localhost:1313/posts/ue_builds_%E6%B1%87%E6%80%BB/</guid>
 				<description>总结 Unreal Engine 中 Launcher Build、GitHub Source Build 和 Installed Build 三种常见 Engine Build 的特点、区别及适用场景。</description>
 			</item>
+			<item>
+				<title>理解 Unreal Engine Renderer：Content Layer 与 Engine Layer</title>
+				<link>http://localhost:1313/posts/ue_rendering_contentengine-layers/</link>
+				<pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/ue_rendering_contentengine-layers/</guid>
+				<description>从 Content Layer 与 Engine Layer 两层架构理解 Unreal Engine Renderer 的整体设计思想。</description>
+			</item>
 	</channel>
 </rss>

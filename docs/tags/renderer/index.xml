@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Renderer on My New Hugo Project</title>
+		<link>http://localhost:1313/tags/renderer/</link>
+		<description>Recent content in Renderer on My New Hugo Project</description>
+		<generator>Hugo</generator>
+		<language>en-us</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 05 Aug 2026 00:00:00 +0000</lastBuildDate>
+		
+			<atom:link href="http://localhost:1313/tags/renderer/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>理解 UE5 Renderer：两个 World、渲染职责与源码学习路线</title>
+				<link>http://localhost:1313/posts/ue_renderer_worlds/</link>
+				<pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/ue_renderer_worlds/</guid>
+				<description>从 Game World 与 Render World 的角度理解 UE5 Renderer，并总结商业级 Mobile 项目的优化重点及推荐源码学习路线。</description>
+			</item>
+			<item>
+				<title>理解 Unreal Engine Renderer：Content Layer 与 Engine Layer</title>
+				<link>http://localhost:1313/posts/ue_rendering_contentengine-layers/</link>
+				<pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/ue_rendering_contentengine-layers/</guid>
+				<description>从 Content Layer 与 Engine Layer 两层架构理解 Unreal Engine Renderer 的整体设计思想。</description>
+			</item>
+	</channel>
+</rss>

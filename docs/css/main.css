@@ -32,6 +32,14 @@ table tbody tr:nth-child(even) {
   background: #fafafa;
 }
 
+/* ns-hugo-imp:/Users/steamcui/Desktop/LearnMore/hongqiangcui.github.io/assets/css/extended/image.css */
+img.ue-image {
+  display: block;
+  width: min(70%, 900px);
+  height: auto;
+  margin: 1.5rem auto;
+}
+
 /* <stdin> */
 body {
   color: #222;

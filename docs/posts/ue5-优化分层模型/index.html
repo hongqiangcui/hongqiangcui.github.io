@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>UE5 优化分层模型（Optimization Layer Model） | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>UE5 优化分层模型（Optimization Layer Model）</h1>
+
+  
+  
+  <time datetime="2026-08-05T00:00:00&#43;00:00">August 5, 2026</time>
+
+  <h1 id="ue5-优化分层模型optimization-layer-model">UE5 优化分层模型（Optimization Layer Model）</h1>
+<p>很多开发者学习 UE 优化时，会直接去研究：</p>
+<ul>
+<li>Nanite</li>
+<li>Lumen</li>
+<li>RDG</li>
+<li>GPU Scene</li>
+<li>HLOD</li>
+</ul>
+<p>但实际上，这些只是<strong>优化手段（Optimization Techniques）</strong>。</p>
+<p>真正做商业项目时，更重要的是先建立一套<strong>性能分析（Profiling）分层模型</strong>。</p>
+<p>我习惯将 UE5 的优化划分为五个层级：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Profiling
+</span></span><span style="display:flex;"><span> ├── CPU
+</span></span><span style="display:flex;"><span> ├── GPU
+</span></span><span style="display:flex;"><span> ├── Memory
+</span></span><span style="display:flex;"><span> ├── IO / Streaming
+</span></span><span style="display:flex;"><span> └── Shader / PSO
+</span></span></code></pre></div><p>当项目出现性能问题时，第一步不是优化，而是回答：</p>
+<blockquote>
+<p><strong>瓶颈到底属于哪一层？</strong></p>
+</blockquote>
+<p>只有定位正确，后续的优化才有意义。</p>
+<hr>
+<h1 id="优化分层总览">优化分层总览</h1>
+<table>
+	<thead>
+			<tr>
+					<th>层级</th>
+					<th>关注对象</th>
+					<th>常见问题</th>
+					<th>常用工具</th>
+					<th>常见优化方向</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>CPU</strong></td>
+					<td>Gameplay、Tick、Animation、Physics</td>
+					<td>Game Thread 过高</td>
+					<td>Unreal Insights、Stat Game、Stat Tick</td>
+					<td>Tick 优化、逻辑拆分、异步任务、减少 Actor</td>
+			</tr>
+			<tr>
+					<td><strong>GPU</strong></td>
+					<td>Rendering、Lumen、Nanite、Niagara</td>
+					<td>GPU 时间过长</td>
+					<td>ProfileGPU、Stat GPU、RenderDoc</td>
+					<td>LOD、材质优化、阴影、光照、减少 Overdraw</td>
+			</tr>
+			<tr>
+					<td><strong>Memory / Asset</strong></td>
+					<td>Mesh、Texture、Animation</td>
+					<td>内存占用过高</td>
+					<td>MemReport、Stat Memory、LLM</td>
+					<td>Texture Streaming、压缩资源、减少驻留</td>
+			</tr>
+			<tr>
+					<td><strong>IO / Streaming</strong></td>
+					<td>World Partition、Asset Loading</td>
+					<td>加载卡顿、Streaming Hitch</td>
+					<td>Unreal Insights、Stat Streaming</td>
+					<td>World Partition、Async Loading、HLOD</td>
+			</tr>
+			<tr>
+					<td><strong>Shader / PSO</strong></td>
+					<td>Shader、Pipeline State</td>
+					<td>Shader Hitch、首次卡顿</td>
+					<td>PSO Cache、Shader Compile、Insights</td>
+					<td>Shader Permutation、PSO Cache、预热</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="一cpugameplay">一、CPU（Gameplay）</h1>
+<p>CPU 层主要负责：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Gameplay
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>AI
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Physics
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Animation
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Tick
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Blueprint
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Task Graph
+</span></span></code></pre></div><p>也就是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Game Thread
+</span></span></code></pre></div><hr>
+<h2 id="常见瓶颈">常见瓶颈</h2>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Tick 太多
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Actor 太多
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Blueprint Tick
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Animation Update
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Physics
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>AI
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Path Finding
+</span></span></code></pre></div><p>商业项目中：</p>
+<p>CPU 很多时候不是 Renderer，而是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Gameplay
+</span></span></code></pre></div><hr>
+<h2 id="常用工具">常用工具</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Stat Game
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Stat Tick
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Stat Unit
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Unreal Insights
+</span></span></code></pre></div><hr>
+<h2 id="常见优化方法">常见优化方法</h2>
+<ul>
+<li>减少 Tick</li>
+<li>Tick Interval</li>
+<li>Event 驱动代替 Tick</li>
+<li>Async Task</li>
+<li>Object Pool</li>
+<li>Gameplay 拆分</li>
+<li>Mass Framework（大量实体）</li>
+</ul>
+<hr>
+<h1 id="二gpurendering">二、GPU（Rendering）</h1>
+<p>GPU 层负责：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Lumen
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Nanite
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Shadow
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>PostProcess
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Niagara
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Material
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Lighting
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Renderer
+</span></span></code></pre></div><p>主要对应：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Render Thread
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU
+</span></span></code></pre></div><hr>
+<h2 id="常见瓶颈-1">常见瓶颈</h2>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Lumen GI
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Virtual Shadow Map
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Nanite
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Material
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Translucency
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Overdraw
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Post Process
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Niagara
+</span></span></code></pre></div><hr>
+<h2 id="常用工具-1">常用工具</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>ProfileGPU
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Stat GPU
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>RenderDoc
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>PIX
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Nsight
+</span></span></code></pre></div><hr>
+<h2 id="常见优化方法-1">常见优化方法</h2>
+<ul>
+<li>LOD</li>
+<li>HLOD</li>
+<li>Instance</li>
+<li>HISM</li>
+<li>Foliage</li>
+<li>Material Instance</li>
+<li>Shader Complexity</li>
+<li>Shadow Distance</li>
+<li>Niagara Budget</li>
+</ul>
+<hr>
+<h1 id="三memory--asset">三、Memory / Asset</h1>
+<p>很多项目 FPS 正常。</p>
+<p>但是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>OOM
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Memory Leak
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Texture Pool Overflow
+</span></span></code></pre></div><p>这些都属于：</p>
+<p>Memory Layer。</p>
+<hr>
+<h2 id="关注对象">关注对象</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Texture
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Static Mesh
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Skeletal Mesh
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Animation
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Audio
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Virtual Texture
+</span></span></code></pre></div><hr>
+<h2 id="常见问题">常见问题</h2>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Texture Pool 满
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>大量资源常驻
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>动画过大
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>重复资源
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Mesh 太大
+</span></span></code></pre></div><hr>
+<h2 id="常用工具-2">常用工具</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>MemReport
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Stat Memory
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Stat TextureGroup
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>LLM
+</span></span></code></pre></div><hr>
+<h2 id="常见优化方法-2">常见优化方法</h2>
+<ul>
+<li>Texture Streaming</li>
+<li>Virtual Texture</li>
+<li>Mesh LOD</li>
+<li>Animation Compression</li>
+<li>Asset Audit</li>
+<li>减少常驻资源</li>
+<li>合理设置 Streaming Pool</li>
+</ul>
+<hr>
+<h1 id="四io--streaming">四、IO / Streaming</h1>
+<p>UE5 大世界项目：</p>
+<p>很多性能问题其实来自：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Streaming
+</span></span></code></pre></div><p>而不是 GPU。</p>
+<hr>
+<h2 id="包括">包括</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>World Partition
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Level Streaming
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Async Loading
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Asset Manager
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Data Layer
+</span></span></code></pre></div><hr>
+<h2 id="常见问题-1">常见问题</h2>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Streaming Hitch
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Level Loading
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Cell Loading
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>IO Stall
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Asset Blocking
+</span></span></code></pre></div><hr>
+<h2 id="常用工具-3">常用工具</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Unreal Insights
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Stat Streaming
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>IO Insights
+</span></span></code></pre></div><hr>
+<h2 id="常见优化方法-3">常见优化方法</h2>
+<ul>
+<li>World Partition</li>
+<li>Data Layer</li>
+<li>Async Loading</li>
+<li>HLOD</li>
+<li>Streaming Source</li>
+<li>Streaming Distance</li>
+<li>Asset Chunk</li>
+</ul>
+<hr>
+<h1 id="五shader--pso">五、Shader / PSO</h1>
+<p>这一层主要解决：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Shader Compile
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>PSO Compile
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Shader Hitch
+</span></span></code></pre></div><p>尤其是在：</p>
+<p>DX12</p>
+<p>Vulkan</p>
+<p>Metal</p>
+<p>都会出现：</p>
+<p>首次进入场景：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>卡一下
+</span></span></code></pre></div><p>这通常就是：</p>
+<p>Shader Hitch。</p>
+<hr>
+<h2 id="常见问题-2">常见问题</h2>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Shader Compile
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>PSO Compile
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Permutation Explosion
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>首次 Draw 卡顿
+</span></span></code></pre></div><hr>
+<h2 id="常用工具-4">常用工具</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Shader Compile Worker
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>PSO Cache
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Insights
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Shader Stats
+</span></span></code></pre></div><hr>
+<h2 id="常见优化方法-4">常见优化方法</h2>
+<ul>
+<li>PSO Cache</li>
+<li>PSO Precache</li>
+<li>Shader Pipeline Cache</li>
+<li>减少 Material Permutation</li>
+<li>Material Instance</li>
+<li>Shared Shader</li>
+</ul>
+<hr>
+<h1 id="五层之间的关系">五层之间的关系</h1>
+<p>可以理解成下面这样：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>                 Profiling
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        ┌────────────────────────┐
+</span></span><span style="display:flex;"><span>        │        CPU             │
+</span></span><span style="display:flex;"><span>        │ Gameplay / Tick        │
+</span></span><span style="display:flex;"><span>        └────────────────────────┘
+</span></span><span style="display:flex;"><span>                    │
+</span></span><span style="display:flex;"><span>                    ▼
+</span></span><span style="display:flex;"><span>        ┌────────────────────────┐
+</span></span><span style="display:flex;"><span>        │        GPU             │
+</span></span><span style="display:flex;"><span>        │ Renderer / Lumen       │
+</span></span><span style="display:flex;"><span>        └────────────────────────┘
+</span></span><span style="display:flex;"><span>                    │
+</span></span><span style="display:flex;"><span>                    ▼
+</span></span><span style="display:flex;"><span>        ┌────────────────────────┐
+</span></span><span style="display:flex;"><span>        │   Memory / Asset       │
+</span></span><span style="display:flex;"><span>        │ Texture / Mesh         │
+</span></span><span style="display:flex;"><span>        └────────────────────────┘
+</span></span><span style="display:flex;"><span>                    │
+</span></span><span style="display:flex;"><span>                    ▼
+</span></span><span style="display:flex;"><span>        ┌────────────────────────┐
+</span></span><span style="display:flex;"><span>        │   IO / Streaming       │
+</span></span><span style="display:flex;"><span>        │ World Partition        │
+</span></span><span style="display:flex;"><span>        └────────────────────────┘
+</span></span><span style="display:flex;"><span>                    │
+</span></span><span style="display:flex;"><span>                    ▼
+</span></span><span style="display:flex;"><span>        ┌────────────────────────┐
+</span></span><span style="display:flex;"><span>        │    Shader / PSO        │
+</span></span><span style="display:flex;"><span>        │ Compile / Cache        │
+</span></span><span style="display:flex;"><span>        └────────────────────────┘
+</span></span></code></pre></div><p>需要注意的是：</p>
+<p>这些层并不是严格的上下游关系，而是<strong>五个独立但相互影响的性能维度</strong>。</p>
+<p>例如：</p>
+<ul>
+<li>Texture Streaming 会影响 GPU Memory。</li>
+<li>World Partition 会影响 IO 与 CPU。</li>
+<li>Material 数量会影响 GPU 和 Shader。</li>
+<li>Actor 数量会同时影响 CPU 和 Renderer。</li>
+</ul>
+<p>因此，定位问题时要避免只关注某一个指标。</p>
+<hr>
+<h1 id="商业项目中的优化思路">商业项目中的优化思路</h1>
+<p>很多人一提到 UE5 优化，就会想到：</p>
+<ul>
+<li>Lumen</li>
+<li>Nanite</li>
+<li>GPU Scene</li>
+</ul>
+<p>实际上，真正的商业项目通常遵循下面的流程：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Profiling
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>定位瓶颈
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>确认属于哪一层
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>选择对应优化方案
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>验证优化结果
+</span></span></code></pre></div><p>而不是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>FPS 低
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>开始改 Renderer
+</span></span></code></pre></div><p>大多数情况下，这种做法效率并不高。</p>
+<hr>
+<h1 id="推荐的优化学习顺序">推荐的优化学习顺序</h1>
+<p>建议按照下面的顺序建立性能分析能力：</p>
+<ol>
+<li>
+<p><strong>CPU Profiling</strong></p>
+<ul>
+<li>Tick</li>
+<li>Gameplay</li>
+<li>Animation</li>
+<li>Physics</li>
+</ul>
+</li>
+<li>
+<p><strong>GPU Profiling</strong></p>
+<ul>
+<li>Renderer</li>
+<li>Lumen</li>
+<li>Nanite</li>
+<li>Shadow</li>
+<li>Niagara</li>
+</ul>
+</li>
+<li>
+<p><strong>Memory</strong></p>
+<ul>
+<li>Texture</li>
+<li>Mesh</li>
+<li>Streaming Pool</li>
+<li>Virtual Texture</li>
+</ul>
+</li>
+<li>
+<p><strong>Streaming</strong></p>
+<ul>
+<li>World Partition</li>
+<li>Async Loading</li>
+<li>HLOD</li>
+<li>Asset Manager</li>
+</ul>
+</li>
+<li>
+<p><strong>Shader / PSO</strong></p>
+<ul>
+<li>Shader Compile</li>
+<li>PSO Cache</li>
+<li>Pipeline Cache</li>
+<li>Material Permutation</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h1 id="总结">总结</h1>
+<p>UE5 的性能优化可以抽象为五个层级：</p>
+<table>
+	<thead>
+			<tr>
+					<th>层级</th>
+					<th>核心问题</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>CPU</strong></td>
+					<td>游戏逻辑是否高效运行？</td>
+			</tr>
+			<tr>
+					<td><strong>GPU</strong></td>
+					<td>每一帧是否能高效完成渲染？</td>
+			</tr>
+			<tr>
+					<td><strong>Memory</strong></td>
+					<td>资源是否占用过多内存？</td>
+			</tr>
+			<tr>
+					<td><strong>IO / Streaming</strong></td>
+					<td>资源是否能及时加载和卸载？</td>
+			</tr>
+			<tr>
+					<td><strong>Shader / PSO</strong></td>
+					<td>Shader 与 Pipeline 是否造成编译卡顿？</td>
+			</tr>
+	</tbody>
+</table>
+<p><strong>一句话总结：</strong></p>
+<blockquote>
+<p><strong>优化不是先修改代码，而是先定位瓶颈。</strong></p>
+<p>建立「CPU → GPU → Memory → IO → Shader」五层 Profiling 模型，比掌握任何单一优化技巧都更重要。</p>
+</blockquote>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/ue5/">UE5</a></li>
+        <li><a href="/tags/optimization/">Optimization</a></li>
+        <li><a href="/tags/profiling/">Profiling</a></li>
+        <li><a href="/tags/performance/">Performance</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>

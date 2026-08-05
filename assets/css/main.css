@@ -1,6 +1,7 @@
 @import "components/header.css";
 @import "components/footer.css";
 @import "extended/table.css";
+@import "extended/image.css";
 
 body {
   color: #222;

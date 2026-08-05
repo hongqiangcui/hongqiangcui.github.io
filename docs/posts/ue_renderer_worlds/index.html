@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>理解 UE5 Renderer：两个 World、渲染职责与源码学习路线 | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>理解 UE5 Renderer：两个 World、渲染职责与源码学习路线</h1>
+
+  
+  
+  <time datetime="2026-08-05T00:00:00&#43;00:00">August 5, 2026</time>
+
+  <h1 id="理解-ue5-renderer两个-world">理解 UE5 Renderer：两个 World</h1>
+<p>学习 Unreal Engine Renderer，我认为最重要的第一件事，就是建立 <strong>&ldquo;UE5 有两个 World&rdquo;</strong> 的概念。</p>
+<p>很多初学 Renderer 的同学容易把 Gameplay 和 Rendering 混在一起。</p>
+<p>实际上，UE 从架构设计上就把它们完全解耦。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>                UE5
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      ┌──────────────────────┐
+</span></span><span style="display:flex;"><span>      │      Game World      │
+</span></span><span style="display:flex;"><span>      └──────────┬───────────┘
+</span></span><span style="display:flex;"><span>                 │
+</span></span><span style="display:flex;"><span>          Synchronization
+</span></span><span style="display:flex;"><span>                 │
+</span></span><span style="display:flex;"><span>                 ▼
+</span></span><span style="display:flex;"><span>      ┌──────────────────────┐
+</span></span><span style="display:flex;"><span>      │     Render World     │
+</span></span><span style="display:flex;"><span>      └──────────────────────┘
+</span></span></code></pre></div><p>Game World 描述的是：</p>
+<blockquote>
+<p><strong>世界里有什么。</strong></p>
+</blockquote>
+<p>Render World 描述的是：</p>
+<blockquote>
+<p><strong>GPU 应该画什么。</strong></p>
+</blockquote>
+<hr>
+<h1 id="game-world">Game World</h1>
+<p>Game World 属于 Gameplay。</p>
+<p>这里保存的是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Actor
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Component
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Transform
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Collision
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Animation
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Physics
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>AI
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Gameplay
+</span></span></code></pre></div><p>这里的数据主要运行在：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Game Thread
+</span></span></code></pre></div><p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>AActor
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">↓</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>USceneComponent
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">↓</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>UStaticMeshComponent
+</span></span></code></pre></div><p>所有 Gameplay 都发生在这里。</p>
+<p>例如：</p>
+<ul>
+<li>玩家移动</li>
+<li>AI 行为</li>
+<li>Physics</li>
+<li>Collision</li>
+<li>Animation Update</li>
+</ul>
+<p>这些都不会直接操作 GPU。</p>
+<hr>
+<h1 id="render-world">Render World</h1>
+<p>Game Thread 每一帧都会把需要渲染的数据同步到：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Render World
+</span></span></code></pre></div><p>这一层才是真正属于 Renderer。</p>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>PrimitiveSceneProxy
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU Scene
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Mesh Draw Command
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Instance Culling
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Renderer
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>RHI
+</span></span></code></pre></div><p>它们主要运行在：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Render Thread
+</span></span></code></pre></div><p>Renderer 根本不知道：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Player
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Enemy
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>NPC
+</span></span></code></pre></div><p>它只知道：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Mesh
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Material
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU Buffer
+</span></span></code></pre></div><hr>
+<h1 id="两个-world-如何连接">两个 World 如何连接？</h1>
+<p>中间最重要的对象就是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>FPrimitiveSceneProxy
+</span></span></code></pre></div><p>完整的数据流如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Game Thread
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Actor
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>UPrimitiveComponent
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> │ Synchronization
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>FPrimitiveSceneProxy
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Render Thread
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>GPU Scene
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Mesh Draw Command
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>GPU
+</span></span></code></pre></div><p>可以认为：</p>
+<blockquote>
+<p><strong>PrimitiveSceneProxy 就是两个 World 之间的桥梁。</strong></p>
+</blockquote>
+<hr>
+<h1 id="ue-worldsrenderer-的完整工作流">UE Worlds：Renderer 的完整工作流</h1>
+<p>站在 Renderer 的角度来看，一个世界最终会经过下面这条流水线：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>World Partition
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>Scene Visibility
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>PrimitiveOctree
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>GPU Scene
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>Mesh Draw Command
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>Instance Culling
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>RHI
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>GPU
+</span></span></code></pre></div><p>每一层都有明确的职责。</p>
+<table>
+	<thead>
+			<tr>
+					<th>模块</th>
+					<th>主要职责</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>World Partition</td>
+					<td>管理世界分块、Streaming 与加载</td>
+			</tr>
+			<tr>
+					<td>Scene Visibility</td>
+					<td>判断当前 Camera 可见对象</td>
+			</tr>
+			<tr>
+					<td>PrimitiveOctree</td>
+					<td>空间索引，加速查询与剔除</td>
+			</tr>
+			<tr>
+					<td>GPU Scene</td>
+					<td>将场景数据上传 GPU，统一管理实例数据</td>
+			</tr>
+			<tr>
+					<td>Mesh Draw Command</td>
+					<td>组织 Draw Call，减少 CPU 提交开销</td>
+			</tr>
+			<tr>
+					<td>Instance Culling</td>
+					<td>GPU 或 CPU 剔除不可见实例</td>
+			</tr>
+			<tr>
+					<td>RHI</td>
+					<td>将渲染命令提交到 DirectX、Vulkan、Metal 等图形 API</td>
+			</tr>
+	</tbody>
+</table>
+<p>这条流水线就是 <strong>Render World</strong> 的核心工作流程。</p>
+<hr>
+<h1 id="ue-已经帮你解决了什么">UE 已经帮你解决了什么？</h1>
+<p>UE Renderer 已经替开发者解决了一个非常复杂的问题：</p>
+<blockquote>
+<p><strong>怎么渲染（How to Render）</strong></p>
+</blockquote>
+<p>例如：</p>
+<ul>
+<li>Shader 编译</li>
+<li>Draw Call 管理</li>
+<li>GPU Resource</li>
+<li>Render Pass</li>
+<li>PSO</li>
+<li>RDG</li>
+<li>RHI</li>
+</ul>
+<p>这些都是 Engine Layer 的职责。</p>
+<p>大多数情况下，开发者无需自己实现。</p>
+<hr>
+<h1 id="商业项目真正投入优化的地方">商业项目真正投入优化的地方</h1>
+<p>对于商业级项目（尤其是 Mobile 项目），额外投入的大量优化工作，更多是在回答另外三个问题：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>什么该渲染？
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>什么时候渲染？
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>渲染到什么程度？
+</span></span></code></pre></div><p>也就是：</p>
+<ul>
+<li><strong>What should be rendered?</strong></li>
+<li><strong>When should it be rendered?</strong></li>
+<li><strong>To what level should it be rendered?</strong></li>
+</ul>
+<p>例如：</p>
+<ul>
+<li>World Partition Streaming</li>
+<li>HLOD</li>
+<li>LOD</li>
+<li>Instance Culling</li>
+<li>Occlusion Culling</li>
+<li>Texture Streaming</li>
+<li>Mesh Streaming</li>
+<li>Visibility</li>
+<li>Foliage 合批</li>
+<li>HISM</li>
+<li>Shadow Distance</li>
+<li>Nanite Cluster Streaming</li>
+</ul>
+<p>这些决定了 Renderer 是否高效，而不是 Renderer 是否能够工作。</p>
+<p>换句话说：</p>
+<blockquote>
+<p><strong>UE 默认解决的是&quot;如何画&quot;，商业项目更多关注的是&quot;画什么、何时画、画多少&quot;。</strong></p>
+</blockquote>
+<hr>
+<h1 id="推荐的源码学习路线">推荐的源码学习路线</h1>
+<p>如果目标是：</p>
+<ul>
+<li>理解 UE Renderer</li>
+<li>学习大世界</li>
+<li>掌握 Mobile 优化</li>
+<li>阅读 Engine 源码</li>
+</ul>
+<p>相比直接研究 Lyra，我更推荐下面这条路线。</p>
+<p>按收益排序：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>★★★★★ StaticMesh
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>★★★★★ HISM
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>★★★★★ Landscape
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>★★★★★ Foliage
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>★★★★★ World Partition
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>★★★★ GPU Scene
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>★★★★ Renderer
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>★★★★ Nanite
+</span></span></code></pre></div><hr>
+<h1 id="为什么推荐这条路线">为什么推荐这条路线？</h1>
+<h2 id="-static-mesh">① Static Mesh（★★★★★）</h2>
+<p>所有 Renderer 的起点。</p>
+<p>建议重点理解：</p>
+<ul>
+<li>UStaticMesh</li>
+<li>FStaticMeshRenderData</li>
+<li>FStaticMeshLODResources</li>
+<li>Vertex Buffer</li>
+<li>Index Buffer</li>
+</ul>
+<p>这是后续所有渲染对象的基础。</p>
+<hr>
+<h2 id="-hism">② HISM（★★★★★）</h2>
+<p>商业项目最重要的优化技术之一。</p>
+<p>重点包括：</p>
+<ul>
+<li>Instancing</li>
+<li>Draw Call 合并</li>
+<li>GPU Instance Buffer</li>
+<li>Instance Culling</li>
+</ul>
+<p>几乎所有植被和重复物体都会使用。</p>
+<hr>
+<h2 id="-landscape">③ Landscape（★★★★★）</h2>
+<p>学习：</p>
+<ul>
+<li>Landscape Component</li>
+<li>Section</li>
+<li>LOD</li>
+<li>Streaming Proxy</li>
+</ul>
+<p>理解 UE 如何管理超大地形。</p>
+<hr>
+<h2 id="-foliage">④ Foliage（★★★★★）</h2>
+<p>这是 HISM 的实际应用。</p>
+<p>重点包括：</p>
+<ul>
+<li>Foliage Actor</li>
+<li>ISM/HISM</li>
+<li>Cull Distance</li>
+<li>Cluster</li>
+<li>Instance Buffer</li>
+</ul>
+<p>商业项目中出现频率极高。</p>
+<hr>
+<h2 id="-world-partition">⑤ World Partition（★★★★★）</h2>
+<p>理解 UE5 大世界的关键。</p>
+<p>学习：</p>
+<ul>
+<li>Runtime Hash</li>
+<li>Streaming Cell</li>
+<li>Data Layer</li>
+<li>Spatial Loading</li>
+</ul>
+<p>这是 UE5 World Streaming 的核心。</p>
+<hr>
+<h2 id="-gpu-scene">⑥ GPU Scene（★★★★☆）</h2>
+<p>这是 UE5 Renderer 最重要的新架构之一。</p>
+<p>学习：</p>
+<ul>
+<li>GPU Primitive Buffer</li>
+<li>GPU Instance Data</li>
+<li>Primitive Upload</li>
+<li>Scene Data 管理</li>
+</ul>
+<hr>
+<h2 id="-renderer">⑦ Renderer（★★★★☆）</h2>
+<p>最后再深入：</p>
+<ul>
+<li>Scene Visibility</li>
+<li>Mesh Pass</li>
+<li>Render Graph（RDG）</li>
+<li>Shadow</li>
+<li>Lighting</li>
+<li>Deferred Renderer</li>
+</ul>
+<p>此时再阅读 Renderer 源码会轻松很多。</p>
+<hr>
+<h2 id="-nanite">⑧ Nanite（★★★★☆）</h2>
+<p>最后研究 Nanite。</p>
+<p>重点包括：</p>
+<ul>
+<li>Cluster</li>
+<li>Page Streaming</li>
+<li>Visibility Buffer</li>
+<li>Software Rasterizer</li>
+</ul>
+<p>Nanite 建立在前面所有知识之上，放到最后学习效率最高。</p>
+<hr>
+<h1 id="这条路线覆盖了哪些核心能力">这条路线覆盖了哪些核心能力？</h1>
+<p>按照以上顺序学习，几乎可以覆盖 UE5 Renderer 中最重要的内容：</p>
+<ul>
+<li>大世界（World Partition）</li>
+<li>Mobile 优化</li>
+<li>Streaming</li>
+<li>LOD 系统</li>
+<li>GPU 提交</li>
+<li>CPU 提交</li>
+<li>HISM / Instancing</li>
+<li>Landscape</li>
+<li>Foliage</li>
+<li>Renderer Pipeline</li>
+<li>GPU Scene</li>
+<li>Nanite</li>
+</ul>
+<p>它既符合 UE5 的整体架构，也贴近商业项目中的实际需求。</p>
+<hr>
+<h1 id="总结">总结</h1>
+<p>理解 UE Renderer，可以先建立两个核心认知：</p>
+<h2 id="一ue5-有两个-world">一、UE5 有两个 World</h2>
+<ul>
+<li><strong>Game World</strong>：负责 Gameplay，由 Game Thread 更新。</li>
+<li><strong>Render World</strong>：负责 Rendering，由 Render Thread 驱动。</li>
+</ul>
+<p>二者通过 <code>FPrimitiveSceneProxy</code> 完成数据同步。</p>
+<hr>
+<h2 id="二renderer-的核心工作流">二、Renderer 的核心工作流</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>World Partition
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Scene Visibility
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>PrimitiveOctree
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>GPU Scene
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Mesh Draw Command
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Instance Culling
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>RHI
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>GPU
+</span></span></code></pre></div><p>这是 Render World 从&quot;世界数据&quot;到&quot;GPU 绘制&quot;的核心流水线。</p>
+<hr>
+<h2 id="三商业项目真正优化的重点">三、商业项目真正优化的重点</h2>
+<p>UE 已经帮开发者解决了：</p>
+<blockquote>
+<p><strong>&ldquo;怎么渲染（How to Render）&rdquo;</strong></p>
+</blockquote>
+<p>而商业级项目真正需要投入精力的是：</p>
+<ul>
+<li><strong>什么该渲染（What）</strong></li>
+<li><strong>什么时候渲染（When）</strong></li>
+<li><strong>渲染到什么程度（How Much）</strong></li>
+</ul>
+<p>因此，大世界管理、Streaming、LOD、Visibility、Instance Culling 等技术，往往比单纯研究 Renderer 的实现更能直接提升项目性能，也是学习 UE5 渲染源码时最具性价比的方向。</p>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/ue5/">UE5</a></li>
+        <li><a href="/tags/rendering/">Rendering</a></li>
+        <li><a href="/tags/renderer/">Renderer</a></li>
+        <li><a href="/tags/world-partition/">World Partition</a></li>
+        <li><a href="/tags/gpu-scene/">GPU Scene</a></li>
+        <li><a href="/tags/mobile/">Mobile</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>

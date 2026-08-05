@@ -1,0 +1,6 @@
+img.ue-image {
+  display: block;
+  width: min(70%, 900px);
+  height: auto;
+  margin: 1.5rem auto;
+}

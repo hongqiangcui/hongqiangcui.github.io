@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>深入理解 UE5 Resolution Pipeline：Primary、Secondary 与 Final Resolution | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>深入理解 UE5 Resolution Pipeline：Primary、Secondary 与 Final Resolution</h1>
+
+  
+  
+  <time datetime="2026-08-05T00:00:00&#43;00:00">August 5, 2026</time>
+
+  <h1 id="深入理解-ue5-resolution-pipeline">深入理解 UE5 Resolution Pipeline</h1>
+<p>很多人理解 UE 的分辨率只有一个：</p>
+<blockquote>
+<p><strong>1920×1080</strong></p>
+<p>或者</p>
+<p><strong>3840×2160</strong></p>
+</blockquote>
+<p>实际上，从 UE5 开始，Renderer 内部已经同时存在多个 Resolution。</p>
+<p>Epic 在介绍 TSR（Temporal Super Resolution）时，把整个 Pipeline 画成了下面这种形式：</p>
+<p><img
+  class="ue-image"
+  src="/images/ue/resolution-pipeline.png"
+  alt="UE5 Resolution Pipeline"
+  loading="lazy"
+/></p>
+<p>理解这张图，对于理解：</p>
+<ul>
+<li>TSR</li>
+<li>Dynamic Resolution</li>
+<li>Screen Percentage</li>
+<li>DLSS</li>
+<li>FSR</li>
+<li>Mobile Upscaling</li>
+</ul>
+<p>都会轻松很多。</p>
+<hr>
+<h1 id="ue5-为什么需要多个-resolution">UE5 为什么需要多个 Resolution？</h1>
+<p>答案只有一个：</p>
+<blockquote>
+<p><strong>不是所有 Pass 都值得在最终分辨率运行。</strong></p>
+</blockquote>
+<p>例如：</p>
+<p>假设目标输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>3840 × 2160（4K）
+</span></span></code></pre></div><p>真正最贵的是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Geometry
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Shadow
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Lumen
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Nanite
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>BasePass
+</span></span></code></pre></div><p>如果全部在 4K：</p>
+<p>GPU 成本极高。</p>
+<p>因此：</p>
+<p>Renderer 希望：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>先低分辨率渲染
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>恢复画质
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>最后输出 4K
+</span></span></code></pre></div><p>于是就产生了：</p>
+<p>三个 Resolution。</p>
+<hr>
+<h1 id="ue5-三种-resolution">UE5 三种 Resolution</h1>
+<p>整个 Pipeline 可以理解成：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Primary Resolution
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Secondary Resolution
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Final Resolution
+</span></span></code></pre></div><p>它们代表三个不同阶段。</p>
+<hr>
+<h1 id="-dynamic-primary-resolution">① Dynamic Primary Resolution</h1>
+<p>这是：</p>
+<p>真正进行 Scene Rendering 的 Resolution。</p>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>800p
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>900p
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>1080p
+</span></span></code></pre></div><p>都是可能的。</p>
+<p>Epic 图里的：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Dynamic Primary Resolution
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>800~1080p
+</span></span></code></pre></div><p>就是说：</p>
+<p>Renderer 会动态改变它。</p>
+<hr>
+<h2 id="哪些-pass-在这里运行">哪些 Pass 在这里运行？</h2>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Geometry
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Depth
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Shadow
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Nanite
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Lumen
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Base Pass
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Lighting
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>DoF
+</span></span></code></pre></div><p>几乎所有：</p>
+<p>最贵的 Pass。</p>
+<p>所以：</p>
+<p>Primary Resolution 越低：</p>
+<p>GPU 开销越低。</p>
+<hr>
+<h1 id="为什么叫-dynamic">为什么叫 Dynamic？</h1>
+<p>因为：</p>
+<p>它可以实时变化。</p>
+<p>例如：</p>
+<p>目标：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>60 FPS
+</span></span></code></pre></div><p>GPU 开始掉帧：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>60 FPS
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>55 FPS
+</span></span></code></pre></div><p>UE：</p>
+<p>自动：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>1080p
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>1000p
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>900p
+</span></span></code></pre></div><p>GPU：</p>
+<p>恢复：</p>
+<p>60 FPS。</p>
+<p>这就是：</p>
+<p>Dynamic Resolution。</p>
+<hr>
+<h1 id="primary-resolution-是性能核心">Primary Resolution 是性能核心</h1>
+<p>GPU Pixel 数：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>1920×1080
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>≈ 2M Pixels
+</span></span></code></pre></div><p>而：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>3840×2160
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>≈ 8M Pixels
+</span></span></code></pre></div><p>直接：</p>
+<p>4 倍。</p>
+<p>所以：</p>
+<p>降低 Primary Resolution：</p>
+<p>收益非常大。</p>
+<hr>
+<h1 id="-tsrtemporal-super-resolution">② TSR（Temporal Super Resolution）</h1>
+<p>这是：</p>
+<p>UE5 最重要的一步。</p>
+<p>TSR：</p>
+<p>负责：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>低分辨率
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>恢复高质量图像
+</span></span></code></pre></div><p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>900p
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>1440p
+</span></span></code></pre></div><p>这里：</p>
+<p>Renderer 利用：</p>
+<ul>
+<li>Motion Vector</li>
+<li>History Buffer</li>
+<li>Temporal AA</li>
+<li>Reprojection</li>
+</ul>
+<p>恢复细节。</p>
+<p>因此：</p>
+<p>TSR：</p>
+<p>不是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Resize
+</span></span></code></pre></div><p>而是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Temporal Reconstruction
+</span></span></code></pre></div><hr>
+<h1 id="为什么-dof-在-tsr-前">为什么 DoF 在 TSR 前？</h1>
+<p>因为：</p>
+<p>DoF：</p>
+<p>属于：</p>
+<p>Scene Rendering。</p>
+<p>它依赖：</p>
+<p>真实 Scene Depth。</p>
+<p>所以：</p>
+<p>必须：</p>
+<p>在：</p>
+<p>Primary Resolution。</p>
+<p>否则：</p>
+<p>会导致：</p>
+<p>错误的 Blur。</p>
+<hr>
+<h1 id="-secondary-resolution">③ Secondary Resolution</h1>
+<p>TSR 输出之后：</p>
+<p>得到：</p>
+<p>Secondary Resolution。</p>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>1440p
+</span></span></code></pre></div><p>这里：</p>
+<p>已经：</p>
+<p>恢复了：</p>
+<p>比较完整的图像。</p>
+<p>于是：</p>
+<p>后面的：</p>
+<p>Post Process：</p>
+<p>可以继续工作。</p>
+<hr>
+<h2 id="哪些-pass-在这里">哪些 Pass 在这里？</h2>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Motion Blur
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Bloom
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Tonemap
+</span></span></code></pre></div><p>这些：</p>
+<p>已经：</p>
+<p>不需要：</p>
+<p>Scene Geometry。</p>
+<p>因此：</p>
+<p>可以：</p>
+<p>在：</p>
+<p>Secondary Resolution。</p>
+<p>这样：</p>
+<p>成本：</p>
+<p>远低于：</p>
+<p>4K。</p>
+<hr>
+<h1 id="为什么-motion-blur-在-tsr-后">为什么 Motion Blur 在 TSR 后？</h1>
+<p>Motion Blur：</p>
+<p>需要：</p>
+<p>完整画面。</p>
+<p>但是：</p>
+<p>不用：</p>
+<p>重新渲染 Geometry。</p>
+<p>所以：</p>
+<p>TSR：</p>
+<p>恢复画面。</p>
+<p>↓</p>
+<p>Motion Blur</p>
+<p>↓</p>
+<p>Bloom</p>
+<p>↓</p>
+<p>Tonemap</p>
+<p>更加合理。</p>
+<hr>
+<h1 id="-upscale">④ Upscale</h1>
+<p>最后：</p>
+<p>还有一步：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Upscale
+</span></span></code></pre></div><p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>1440p
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>2160p（4K）
+</span></span></code></pre></div><p>这里：</p>
+<p>可能：</p>
+<p>只是：</p>
+<p>Image Upscale。</p>
+<p>不是：</p>
+<p>重新渲染。</p>
+<hr>
+<h1 id="-ui">⑤ UI</h1>
+<p>为什么：</p>
+<p>UI：</p>
+<p>放在：</p>
+<p>Upscale 后？</p>
+<p>因为：</p>
+<p>UI：</p>
+<p>必须：</p>
+<p>保持：</p>
+<p>Pixel Perfect。</p>
+<p>例如：</p>
+<p>字体。</p>
+<p>如果：</p>
+<p>UI：</p>
+<p>跟着：</p>
+<p>900p：</p>
+<p>渲染。</p>
+<p>最后：</p>
+<p>放大。</p>
+<p>字体：</p>
+<p>一定：</p>
+<p>模糊。</p>
+<p>所以：</p>
+<p>UE：</p>
+<p>先：</p>
+<p>完成：</p>
+<p>Scene。</p>
+<p>最后：</p>
+<p>再：</p>
+<p>绘制：</p>
+<p>UI。</p>
+<hr>
+<h1 id="-backbuffer">⑥ Backbuffer</h1>
+<p>最终：</p>
+<p>写入：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Backbuffer
+</span></span></code></pre></div><p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>3840×2160
+</span></span></code></pre></div><p>然后：</p>
+<p>Swap Chain：</p>
+<p>Present。</p>
+<p>最终：</p>
+<p>显示：</p>
+<p>屏幕。</p>
+<hr>
+<h1 id="整个-pipeline">整个 Pipeline</h1>
+<p>整理一下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Primary Resolution
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Geometry
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Depth
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Nanite
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Lumen
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Lighting
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>DoF
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>TSR
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Secondary Resolution
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Motion Blur
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Bloom
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Tonemap
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Upscale
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>UI
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Backbuffer
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Monitor
+</span></span></code></pre></div><hr>
+<h1 id="三种-resolution-对比">三种 Resolution 对比</h1>
+<table>
+	<thead>
+			<tr>
+					<th>Resolution</th>
+					<th>主要职责</th>
+					<th>是否动态</th>
+					<th>典型分辨率</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Primary Resolution</td>
+					<td>场景渲染（Geometry、Lighting、Nanite 等）</td>
+					<td>✅</td>
+					<td>800p～1080p</td>
+			</tr>
+			<tr>
+					<td>Secondary Resolution</td>
+					<td>TSR 输出后的后处理阶段</td>
+					<td>一般固定</td>
+					<td>1440p</td>
+			</tr>
+			<tr>
+					<td>Final Resolution</td>
+					<td>最终输出到 Backbuffer</td>
+					<td>固定</td>
+					<td>4K</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="为什么这样设计">为什么这样设计？</h1>
+<p>原因就是：</p>
+<p>GPU 最贵的是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Geometry
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Shadow
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Lighting
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Lumen
+</span></span></code></pre></div><p>而：</p>
+<p>Bloom</p>
+<p>Tonemap</p>
+<p>UI</p>
+<p>这些：</p>
+<p>成本：</p>
+<p>低很多。</p>
+<p>因此：</p>
+<p>Renderer：</p>
+<p>选择：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>低分辨率
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>恢复画面
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>最后输出高分辨率
+</span></span></code></pre></div><p>这样：</p>
+<p>GPU：</p>
+<p>获得：</p>
+<p>巨大收益。</p>
+<hr>
+<h1 id="与-dlssfsrxess-的关系">与 DLSS、FSR、XeSS 的关系</h1>
+<p>实际上：</p>
+<p>DLSS</p>
+<p>FSR</p>
+<p>XeSS</p>
+<p>和 TSR：</p>
+<p>都属于：</p>
+<p>这一层：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Primary Resolution
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Upscaler
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Higher Resolution
+</span></span></code></pre></div><p>区别在于：</p>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+					<th>实现</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>TSR</td>
+					<td>UE 自研 Temporal Upscaler</td>
+			</tr>
+			<tr>
+					<td>DLSS</td>
+					<td>NVIDIA AI Upscaler</td>
+			</tr>
+			<tr>
+					<td>FSR2 / FSR3</td>
+					<td>AMD Temporal Upscaler</td>
+			</tr>
+			<tr>
+					<td>XeSS</td>
+					<td>Intel AI Upscaler</td>
+			</tr>
+	</tbody>
+</table>
+<p>它们工作的阶段基本一致，只是重建算法不同。</p>
+<hr>
+<h1 id="对性能优化意味着什么">对性能优化意味着什么？</h1>
+<p>这张图告诉我们一个重要事实：</p>
+<blockquote>
+<p><strong>降低最终输出分辨率，并不一定是最有效的优化方式。</strong></p>
+</blockquote>
+<p>真正影响 GPU 成本的是：</p>
+<ul>
+<li><strong>Primary Resolution（Primary Screen Percentage）</strong></li>
+<li><strong>Geometry Pass</strong></li>
+<li><strong>Lumen</strong></li>
+<li><strong>Nanite</strong></li>
+<li><strong>Shadow</strong></li>
+<li><strong>Lighting</strong></li>
+</ul>
+<p>因此，商业项目中更常见的策略是：</p>
+<ul>
+<li>动态调整 Primary Resolution（Dynamic Resolution）</li>
+<li>使用 TSR / DLSS / FSR 恢复画质</li>
+<li>保持 Final Resolution 不变，确保 UI 和显示效果稳定</li>
+</ul>
+<p>这样既能维持目标帧率，又能尽量保留高分辨率的视觉体验。</p>
+<hr>
+<h1 id="总结">总结</h1>
+<p>UE5 的 Resolution 不再是一个单一的概念，而是一个贯穿整个 Renderer 的分层体系：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Primary Resolution
+</span></span><span style="display:flex;"><span>（真正渲染场景）
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Temporal Reconstruction（TSR / DLSS / FSR）
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Secondary Resolution
+</span></span><span style="display:flex;"><span>（后处理）
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Upscale
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Final Resolution
+</span></span><span style="display:flex;"><span>（Backbuffer）
+</span></span></code></pre></div><p><strong>一句话总结：</strong></p>
+<blockquote>
+<p><strong>UE5 不再追求“全程 4K 渲染”，而是追求“在最合适的阶段使用最合适的分辨率”。</strong></p>
+<p>这种多分辨率渲染架构，是 UE5 能够在大型场景中兼顾画质与性能的关键设计之一。</p>
+</blockquote>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/ue5/">UE5</a></li>
+        <li><a href="/tags/rendering/">Rendering</a></li>
+        <li><a href="/tags/tsr/">TSR</a></li>
+        <li><a href="/tags/resolution/">Resolution</a></li>
+        <li><a href="/tags/upscaling/">Upscaling</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>
