@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>DrawInstanced &#43; CPU Frustum Culling &#43; CPU LOD (Win32 &#43; DirectX12) | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>DrawInstanced &#43; CPU Frustum Culling &#43; CPU LOD (Win32 &#43; DirectX12)</h1>
+
+  
+  
+  <time datetime="0001-01-01T00:00:00&#43;00:00">January 1, 1</time>
+
+  <pre tabindex="0"><code>#include &lt;windows.h&gt;
+#include &lt;wrl.h&gt;
+#include &lt;dxgi1_6.h&gt;
+#include &lt;d3d12.h&gt;
+#include &lt;d3dcompiler.h&gt;
+#include &lt;DirectXMath.h&gt;
+#include &lt;d3dx12.h&gt;
+
+#include &lt;cstdint&gt;
+#include &lt;cstring&gt;
+#include &lt;stdexcept&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+#include &lt;cmath&gt;
+
+using Microsoft::WRL::ComPtr;
+using namespace DirectX;
+
+static const UINT FrameCount = 2;
+static const UINT Width = 1280;
+static const UINT Height = 720;
+
+static const UINT GridW = 100;
+static const UINT GridH = 100;
+static const UINT InstanceCount = GridW * GridH;
+
+static void ThrowIfFailed(HRESULT hr)
+{
+    if (FAILED(hr))
+        throw std::runtime_error(&#34;D3D12 call failed.&#34;);
+}
+
+static UINT Align256(UINT size)
+{
+    return (size + 255u) &amp; ~255u;
+}
+
+struct Vertex
+{
+    float pos[3];
+    float color[4];
+};
+
+struct SourceInstance
+{
+    float offset[2];
+};
+
+struct RenderInstance
+{
+    float offset[2];
+    float scale;
+    float pad0;
+    float color[4];
+};
+
+struct alignas(256) FrameCB
+{
+    XMFLOAT4X4 ViewProj;
+    XMFLOAT4 Camera;   // x, y, frustumHalfW, frustumHalfH
+    XMFLOAT4 Params;   // x = reserved, y = reserved, z = reserved, w = reserved
+};
+
+class App
+{
+public:
+    int Run(HINSTANCE hInst, int nCmdShow)
+    {
+        InitWindow(hInst, nCmdShow);
+        InitD3D();
+        MainLoop();
+        WaitForGpu();
+        if (m_fenceEvent) CloseHandle(m_fenceEvent);
+        return 0;
+    }
+
+private:
+    void GetCamera(float&amp; camX, float&amp; camY) const
+    {
+        float t = static_cast&lt;float&gt;(GetTickCount64()) * 0.001f;
+        camX = std::sin(t * 0.6f) * 3.0f;
+        camY = std::cos(t * 0.4f) * 2.0f;
+    }
+
+    void InitWindow(HINSTANCE hInst, int nCmdShow)
+    {
+        WNDCLASSEXW wc = {};
+        wc.cbSize = sizeof(wc);
+        wc.style = CS_HREDRAW | CS_VREDRAW;
+        wc.lpfnWndProc = WindowProc;
+        wc.hInstance = hInst;
+        wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+        wc.lpszClassName = L&#34;DX12DrawInstancedCpuCullLodSample&#34;;
+
+        RegisterClassExW(&amp;wc);
+
+        RECT r = { 0, 0, (LONG)Width, (LONG)Height };
+        AdjustWindowRect(&amp;r, WS_OVERLAPPEDWINDOW, FALSE);
+
+        m_hwnd = CreateWindowW(
+            wc.lpszClassName,
+            L&#34;D3D12 DrawInstanced + CPU Frustum Culling + CPU LOD&#34;,
+            WS_OVERLAPPEDWINDOW,
+            CW_USEDEFAULT, CW_USEDEFAULT,
+            r.right - r.left, r.bottom - r.top,
+            nullptr, nullptr, hInst, this);
+
+        ShowWindow(m_hwnd, nCmdShow);
+        UpdateWindow(m_hwnd);
+    }
+
+    void InitD3D()
+    {
+#if defined(_DEBUG)
+        {
+            ComPtr&lt;ID3D12Debug&gt; debug;
+            if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&amp;debug))))
+            {
+                debug-&gt;EnableDebugLayer();
+            }
+        }
+#endif
+
+        ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&amp;m_factory)));
+
+        ThrowIfFailed(D3D12CreateDevice(
+            nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&amp;m_device)));
+
+        {
+            D3D12_COMMAND_QUEUE_DESC q = {};
+            q.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+            ThrowIfFailed(m_device-&gt;CreateCommandQueue(&amp;q, IID_PPV_ARGS(&amp;m_queue)));
+        }
+
+        {
+            DXGI_SWAP_CHAIN_DESC1 sc = {};
+            sc.BufferCount = FrameCount;
+            sc.Width = Width;
+            sc.Height = Height;
+            sc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+            sc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+            sc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+            sc.SampleDesc.Count = 1;
+
+            ComPtr&lt;IDXGISwapChain1&gt; sc1;
+            ThrowIfFailed(m_factory-&gt;CreateSwapChainForHwnd(
+                m_queue.Get(), m_hwnd, &amp;sc, nullptr, nullptr, &amp;sc1));
+            ThrowIfFailed(sc1.As(&amp;m_swapChain));
+            ThrowIfFailed(m_factory-&gt;MakeWindowAssociation(m_hwnd, DXGI_MWA_NO_ALT_ENTER));
+
+            m_frameIndex = m_swapChain-&gt;GetCurrentBackBufferIndex();
+        }
+
+        {
+            D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+            desc.NumDescriptors = FrameCount;
+            desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+            ThrowIfFailed(m_device-&gt;CreateDescriptorHeap(&amp;desc, IID_PPV_ARGS(&amp;m_rtvHeap)));
+            m_rtvInc = m_device-&gt;GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+            CD3DX12_CPU_DESCRIPTOR_HANDLE h(m_rtvHeap-&gt;GetCPUDescriptorHandleForHeapStart());
+            for (UINT i = 0; i &lt; FrameCount; ++i)
+            {
+                ThrowIfFailed(m_swapChain-&gt;GetBuffer(i, IID_PPV_ARGS(&amp;m_backBuffers[i])));
+                m_device-&gt;CreateRenderTargetView(m_backBuffers[i].Get(), nullptr, h);
+                h.Offset(1, m_rtvInc);
+            }
+        }
+
+        for (UINT i = 0; i &lt; FrameCount; ++i)
+        {
+            ThrowIfFailed(m_device-&gt;CreateCommandAllocator(
+                D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&amp;m_allocators[i])));
+        }
+
+        CreateRootSignature();
+        CreateShadersAndPSO();
+        CreateGeometry();
+        CreateSourceInstances();
+        CreateConstantBuffer();
+        CreateInstanceUploadBuffer();
+
+        ThrowIfFailed(m_device-&gt;CreateCommandList(
+            0,
+            D3D12_COMMAND_LIST_TYPE_DIRECT,
+            m_allocators[m_frameIndex].Get(),
+            m_pso.Get(),
+            IID_PPV_ARGS(&amp;m_cmdList)));
+        ThrowIfFailed(m_cmdList-&gt;Close());
+
+        ThrowIfFailed(m_device-&gt;CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&amp;m_fence)));
+        m_fenceValue = 1;
+        m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+        if (!m_fenceEvent)
+        {
+            ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+        }
+
+        m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast&lt;float&gt;(Width), static_cast&lt;float&gt;(Height));
+        m_scissor = CD3DX12_RECT(0, 0, static_cast&lt;LONG&gt;(Width), static_cast&lt;LONG&gt;(Height));
+    }
+
+    void CreateRootSignature()
+    {
+        CD3DX12_ROOT_PARAMETER params[1];
+        params[0].InitAsConstantBufferView(0);
+
+        CD3DX12_ROOT_SIGNATURE_DESC desc;
+        desc.Init(1, params, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+        ComPtr&lt;ID3DBlob&gt; sig, err;
+        ThrowIfFailed(D3D12SerializeRootSignature(
+            &amp;desc, D3D_ROOT_SIGNATURE_VERSION_1, &amp;sig, &amp;err));
+
+        ThrowIfFailed(m_device-&gt;CreateRootSignature(
+            0, sig-&gt;GetBufferPointer(), sig-&gt;GetBufferSize(), IID_PPV_ARGS(&amp;m_rootSig)));
+    }
+
+    void CreateShadersAndPSO()
+    {
+        const char* shaderText = R&#34;(
+cbuffer FrameCB : register(b0)
+{
+    row_major float4x4 g_ViewProj;
+    float4 g_Camera;
+    float4 g_Params;
+};
+
+struct VSIn
+{
+    float3 pos      : POSITION;
+    float4 color    : COLOR;
+    float2 instance : INSTANCEPOS;
+    float  scale    : INSTANCESCALE;
+    float4 instCol  : INSTANCECOLOR;
+};
+
+struct VSOut
+{
+    float4 pos   : SV_POSITION;
+    float4 color : COLOR;
+};
+
+VSOut VSMain(VSIn i)
+{
+    VSOut o;
+    float3 local = i.pos * i.scale;
+    float3 world = local + float3(i.instance.xy, 0.0f);
+    o.pos = mul(float4(world, 1.0f), g_ViewProj);
+    o.color = i.color * i.instCol;
+    return o;
+}
+
+float4 PSMain(VSOut i) : SV_Target
+{
+    return i.color;
+}
+)&#34;;
+
+        ComPtr&lt;ID3DBlob&gt; vs, ps, err;
+        ThrowIfFailed(D3DCompile(
+            shaderText, std::strlen(shaderText), nullptr, nullptr, nullptr,
+            &#34;VSMain&#34;, &#34;vs_5_0&#34;, 0, 0, &amp;vs, &amp;err));
+        ThrowIfFailed(D3DCompile(
+            shaderText, std::strlen(shaderText), nullptr, nullptr, nullptr,
+            &#34;PSMain&#34;, &#34;ps_5_0&#34;, 0, 0, &amp;ps, &amp;err));
+
+        D3D12_INPUT_ELEMENT_DESC layout[] =
+        {
+            { &#34;POSITION&#34;,    0, DXGI_FORMAT_R32G32B32_FLOAT,    0,  0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,   0 },
+            { &#34;COLOR&#34;,       0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,   0 },
+            { &#34;INSTANCEPOS&#34;, 0, DXGI_FORMAT_R32G32_FLOAT,       1,  0, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
+            { &#34;INSTANCESCALE&#34;,0, DXGI_FORMAT_R32_FLOAT,         1,  8, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
+            { &#34;INSTANCECOLOR&#34;,0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 16, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
+        };
+
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso = {};
+        pso.InputLayout = { layout, _countof(layout) };
+        pso.pRootSignature = m_rootSig.Get();
+        pso.VS = { vs-&gt;GetBufferPointer(), vs-&gt;GetBufferSize() };
+        pso.PS = { ps-&gt;GetBufferPointer(), ps-&gt;GetBufferSize() };
+        pso.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+        pso.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+        pso.DepthStencilState.DepthEnable = FALSE;
+        pso.DepthStencilState.StencilEnable = FALSE;
+        pso.SampleMask = UINT_MAX;
+        pso.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+        pso.NumRenderTargets = 1;
+        pso.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+        pso.SampleDesc.Count = 1;
+
+        ThrowIfFailed(m_device-&gt;CreateGraphicsPipelineState(&amp;pso, IID_PPV_ARGS(&amp;m_pso)));
+    }
+
+    void CreateGeometry()
+    {
+        const Vertex vertices[] =
+        {
+            { { -0.25f,  0.25f, 0.0f }, { 0.85f, 0.90f, 0.85f, 1.f } }, // TL
+            { {  0.25f,  0.25f, 0.0f }, { 0.85f, 0.90f, 0.85f, 1.f } }, // TR
+            { { -0.25f, -0.25f, 0.0f }, { 0.75f, 0.85f, 0.75f, 1.f } }, // BL
+            { {  0.25f, -0.25f, 0.0f }, { 0.75f, 0.85f, 0.75f, 1.f } }, // BR
+        };
+
+        ThrowIfFailed(m_device-&gt;CreateCommittedResource(
+            &amp;CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+            D3D12_HEAP_FLAG_NONE,
+            &amp;CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&amp;m_vertexBuffer)));
+
+        void* mapped = nullptr;
+        CD3DX12_RANGE range(0, 0);
+        ThrowIfFailed(m_vertexBuffer-&gt;Map(0, &amp;range, &amp;mapped));
+        memcpy(mapped, vertices, sizeof(vertices));
+        m_vertexBuffer-&gt;Unmap(0, nullptr);
+
+        m_vbView.BufferLocation = m_vertexBuffer-&gt;GetGPUVirtualAddress();
+        m_vbView.StrideInBytes = sizeof(Vertex);
+        m_vbView.SizeInBytes = sizeof(vertices);
+    }
+
+    void CreateSourceInstances()
+    {
+        m_sourceInstances.reserve(InstanceCount);
+
+        const float spacing = 0.6f;
+        const float centerX = (GridW - 1) * 0.5f;
+        const float centerY = (GridH - 1) * 0.5f;
+
+        for (UINT y = 0; y &lt; GridH; ++y)
+        {
+            for (UINT x = 0; x &lt; GridW; ++x)
+            {
+                SourceInstance s;
+                s.offset[0] = (static_cast&lt;float&gt;(x) - centerX) * spacing;
+                s.offset[1] = (static_cast&lt;float&gt;(y) - centerY) * spacing;
+                m_sourceInstances.push_back(s);
+            }
+        }
+    }
+
+    void CreateConstantBuffer()
+    {
+        const UINT cbSize = Align256(sizeof(FrameCB));
+
+        ThrowIfFailed(m_device-&gt;CreateCommittedResource(
+            &amp;CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+            D3D12_HEAP_FLAG_NONE,
+            &amp;CD3DX12_RESOURCE_DESC::Buffer(cbSize),
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&amp;m_cb)));
+
+        void* mapped = nullptr;
+        CD3DX12_RANGE range(0, 0);
+        ThrowIfFailed(m_cb-&gt;Map(0, &amp;range, &amp;mapped));
+        m_cbMapped = mapped;
+    }
+
+    void CreateInstanceUploadBuffer()
+    {
+        const UINT bufferSize = InstanceCount * sizeof(RenderInstance);
+
+        ThrowIfFailed(m_device-&gt;CreateCommittedResource(
+            &amp;CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+            D3D12_HEAP_FLAG_NONE,
+            &amp;CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&amp;m_instanceUpload)));
+
+        void* mapped = nullptr;
+        CD3DX12_RANGE range(0, 0);
+        ThrowIfFailed(m_instanceUpload-&gt;Map(0, &amp;range, &amp;mapped));
+        m_instanceUploadMapped = mapped;
+    }
+
+    void UpdateCB()
+    {
+        float camX = 0.0f;
+        float camY = 0.0f;
+        GetCamera(camX, camY);
+
+        const float frustumHalfW = 8.0f;
+        const float frustumHalfH = 4.5f;
+
+        XMMATRIX view = XMMatrixTranslation(-camX, -camY, 0.0f);
+        XMMATRIX proj = XMMatrixOrthographicLH(frustumHalfW * 2.0f, frustumHalfH * 2.0f, 0.0f, 10.0f);
+        XMMATRIX vp = view * proj;
+
+        FrameCB cb = {};
+        XMStoreFloat4x4(&amp;cb.ViewProj, vp);
+        cb.Camera = XMFLOAT4(camX, camY, frustumHalfW, frustumHalfH);
+        cb.Params = XMFLOAT4(0, 0, 0, 0);
+
+        memcpy(m_cbMapped, &amp;cb, sizeof(cb));
+    }
+
+    void CpuFrustumCullAndBuildVisibleLists()
+    {
+        m_nearVisible.clear();
+        m_midVisible.clear();
+        m_farVisible.clear();
+
+        float camX = 0.0f;
+        float camY = 0.0f;
+        GetCamera(camX, camY);
+
+        const float frustumHalfW = 8.0f;
+        const float frustumHalfH = 4.5f;
+        const float extra = 0.25f;
+
+        const float minX = camX - frustumHalfW - extra;
+        const float maxX = camX + frustumHalfW + extra;
+        const float minY = camY - frustumHalfH - extra;
+        const float maxY = camY + frustumHalfH + extra;
+
+        const float nearDist = 4.0f;
+        const float midDist = 8.0f;
+
+        for (const auto&amp; src : m_sourceInstances)
+        {
+            const float x = src.offset[0];
+            const float y = src.offset[1];
+
+            if (x &lt; minX || x &gt; maxX || y &lt; minY || y &gt; maxY)
+                continue;
+
+            const float dx = x - camX;
+            const float dy = y - camY;
+            const float dist = std::sqrt(dx * dx + dy * dy);
+
+            RenderInstance ri = {};
+            ri.offset[0] = x;
+            ri.offset[1] = y;
+
+            if (dist &lt; nearDist)
+            {
+                ri.scale = 1.00f;
+                ri.color[0] = 0.85f;
+                ri.color[1] = 1.00f;
+                ri.color[2] = 0.85f;
+                ri.color[3] = 1.00f;
+                m_nearVisible.push_back(ri);
+            }
+            else if (dist &lt; midDist)
+            {
+                ri.scale = 0.70f;
+                ri.color[0] = 0.70f;
+                ri.color[1] = 0.85f;
+                ri.color[2] = 0.70f;
+                ri.color[3] = 1.00f;
+                m_midVisible.push_back(ri);
+            }
+            else
+            {
+                ri.scale = 0.45f;
+                ri.color[0] = 0.55f;
+                ri.color[1] = 0.65f;
+                ri.color[2] = 0.55f;
+                ri.color[3] = 1.00f;
+                m_farVisible.push_back(ri);
+            }
+        }
+
+        m_nearCount = static_cast&lt;UINT&gt;(m_nearVisible.size());
+        m_midCount = static_cast&lt;UINT&gt;(m_midVisible.size());
+        m_farCount = static_cast&lt;UINT&gt;(m_farVisible.size());
+
+        m_nearStart = 0;
+        m_midStart = m_nearCount;
+        m_farStart = m_nearCount + m_midCount;
+
+        RenderInstance* dst = reinterpret_cast&lt;RenderInstance*&gt;(m_instanceUploadMapped);
+        size_t cursor = 0;
+
+        if (!m_nearVisible.empty())
+        {
+            memcpy(dst + cursor, m_nearVisible.data(), m_nearVisible.size() * sizeof(RenderInstance));
+            cursor += m_nearVisible.size();
+        }
+
+        if (!m_midVisible.empty())
+        {
+            memcpy(dst + cursor, m_midVisible.data(), m_midVisible.size() * sizeof(RenderInstance));
+            cursor += m_midVisible.size();
+        }
+
+        if (!m_farVisible.empty())
+        {
+            memcpy(dst + cursor, m_farVisible.data(), m_farVisible.size() * sizeof(RenderInstance));
+            cursor += m_farVisible.size();
+        }
+
+        m_totalVisible = static_cast&lt;UINT&gt;(cursor);
+    }
+
+    void MainLoop()
+    {
+        MSG msg = {};
+        while (msg.message != WM_QUIT)
+        {
+            if (PeekMessage(&amp;msg, nullptr, 0, 0, PM_REMOVE))
+            {
+                TranslateMessage(&amp;msg);
+                DispatchMessage(&amp;msg);
+            }
+            else
+            {
+                Render();
+            }
+        }
+    }
+
+    void PopulateCommandList()
+    {
+        ThrowIfFailed(m_allocators[m_frameIndex]-&gt;Reset());
+        ThrowIfFailed(m_cmdList-&gt;Reset(m_allocators[m_frameIndex].Get(), m_pso.Get()));
+
+        UpdateCB();
+        CpuFrustumCullAndBuildVisibleLists();
+
+        auto toRT = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_backBuffers[m_frameIndex].Get(),
+            D3D12_RESOURCE_STATE_PRESENT,
+            D3D12_RESOURCE_STATE_RENDER_TARGET);
+        m_cmdList-&gt;ResourceBarrier(1, &amp;toRT);
+
+        CD3DX12_CPU_DESCRIPTOR_HANDLE rtv(
+            m_rtvHeap-&gt;GetCPUDescriptorHandleForHeapStart(),
+            static_cast&lt;INT&gt;(m_frameIndex),
+            m_rtvInc);
+
+        FLOAT clear[] = { 0.08f, 0.08f, 0.12f, 1.0f };
+        m_cmdList-&gt;OMSetRenderTargets(1, &amp;rtv, FALSE, nullptr);
+        m_cmdList-&gt;ClearRenderTargetView(rtv, clear, 0, nullptr);
+
+        m_cmdList-&gt;SetGraphicsRootSignature(m_rootSig.Get());
+        m_cmdList-&gt;SetGraphicsRootConstantBufferView(0, m_cb-&gt;GetGPUVirtualAddress());
+
+        m_cmdList-&gt;RSSetViewports(1, &amp;m_viewport);
+        m_cmdList-&gt;RSSetScissorRects(1, &amp;m_scissor);
+        m_cmdList-&gt;IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+        D3D12_VERTEX_BUFFER_VIEW views[2] = {};
+        views[0] = m_vbView;
+        views[1].BufferLocation = m_instanceUpload-&gt;GetGPUVirtualAddress();
+        views[1].StrideInBytes = sizeof(RenderInstance);
+        views[1].SizeInBytes = m_totalVisible * sizeof(RenderInstance);
+        m_cmdList-&gt;IASetVertexBuffers(0, 2, views);
+
+        if (m_nearCount &gt; 0)
+        {
+            m_cmdList-&gt;DrawInstanced(4, m_nearCount, 0, m_nearStart);
+        }
+
+        if (m_midCount &gt; 0)
+        {
+            m_cmdList-&gt;DrawInstanced(4, m_midCount, 0, m_midStart);
+        }
+
+        if (m_farCount &gt; 0)
+        {
+            m_cmdList-&gt;DrawInstanced(4, m_farCount, 0, m_farStart);
+        }
+
+        auto toPresent = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_backBuffers[m_frameIndex].Get(),
+            D3D12_RESOURCE_STATE_RENDER_TARGET,
+            D3D12_RESOURCE_STATE_PRESENT);
+        m_cmdList-&gt;ResourceBarrier(1, &amp;toPresent);
+
+        ThrowIfFailed(m_cmdList-&gt;Close());
+    }
+
+    void Render()
+    {
+        PopulateCommandList();
+
+        ID3D12CommandList* lists[] = { m_cmdList.Get() };
+        m_queue-&gt;ExecuteCommandLists(1, lists);
+
+        ThrowIfFailed(m_swapChain-&gt;Present(1, 0));
+        MoveToNextFrame();
+    }
+
+    void WaitForGpu()
+    {
+        ThrowIfFailed(m_queue-&gt;Signal(m_fence.Get(), m_fenceValue));
+        ThrowIfFailed(m_fence-&gt;SetEventOnCompletion(m_fenceValue, m_fenceEvent));
+        WaitForSingleObject(m_fenceEvent, INFINITE);
+        ++m_fenceValue;
+    }
+
+    void MoveToNextFrame()
+    {
+        const UINT64 currentFence = m_fenceValue;
+        ThrowIfFailed(m_queue-&gt;Signal(m_fence.Get(), currentFence));
+        ++m_fenceValue;
+
+        m_frameIndex = m_swapChain-&gt;GetCurrentBackBufferIndex();
+
+        if (m_fence-&gt;GetCompletedValue() &lt; currentFence)
+        {
+            ThrowIfFailed(m_fence-&gt;SetEventOnCompletion(currentFence, m_fenceEvent));
+            WaitForSingleObject(m_fenceEvent, INFINITE);
+        }
+    }
+
+    static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+    {
+        App* app = nullptr;
+
+        if (msg == WM_NCCREATE)
+        {
+            CREATESTRUCTW* cs = reinterpret_cast&lt;CREATESTRUCTW*&gt;(lParam);
+            app = reinterpret_cast&lt;App*&gt;(cs-&gt;lpCreateParams);
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast&lt;LONG_PTR&gt;(app));
+        }
+        else
+        {
+            app = reinterpret_cast&lt;App*&gt;(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+        }
+
+        if (msg == WM_DESTROY)
+        {
+            PostQuitMessage(0);
+            return 0;
+        }
+
+        return DefWindowProcW(hwnd, msg, wParam, lParam);
+    }
+
+private:
+    HWND m_hwnd = nullptr;
+
+    ComPtr&lt;IDXGIFactory4&gt; m_factory;
+    ComPtr&lt;ID3D12Device&gt; m_device;
+    ComPtr&lt;ID3D12CommandQueue&gt; m_queue;
+    ComPtr&lt;IDXGISwapChain3&gt; m_swapChain;
+
+    ComPtr&lt;ID3D12DescriptorHeap&gt; m_rtvHeap;
+    ComPtr&lt;ID3D12Resource&gt; m_backBuffers[FrameCount];
+    ComPtr&lt;ID3D12CommandAllocator&gt; m_allocators[FrameCount];
+    ComPtr&lt;ID3D12GraphicsCommandList&gt; m_cmdList;
+    ComPtr&lt;ID3D12Fence&gt; m_fence;
+
+    ComPtr&lt;ID3D12RootSignature&gt; m_rootSig;
+    ComPtr&lt;ID3D12PipelineState&gt; m_pso;
+
+    ComPtr&lt;ID3D12Resource&gt; m_vertexBuffer;
+    ComPtr&lt;ID3D12Resource&gt; m_cb;
+    ComPtr&lt;ID3D12Resource&gt; m_instanceUpload;
+
+    D3D12_VERTEX_BUFFER_VIEW m_vbView = {};
+
+    void* m_cbMapped = nullptr;
+    void* m_instanceUploadMapped = nullptr;
+
+    std::vector&lt;SourceInstance&gt; m_sourceInstances;
+    std::vector&lt;RenderInstance&gt; m_nearVisible;
+    std::vector&lt;RenderInstance&gt; m_midVisible;
+    std::vector&lt;RenderInstance&gt; m_farVisible;
+
+    UINT m_nearCount = 0;
+    UINT m_midCount = 0;
+    UINT m_farCount = 0;
+    UINT m_nearStart = 0;
+    UINT m_midStart = 0;
+    UINT m_farStart = 0;
+    UINT m_totalVisible = 0;
+
+    UINT m_frameIndex = 0;
+    UINT m_rtvInc = 0;
+    UINT64 m_fenceValue = 0;
+    HANDLE m_fenceEvent = nullptr;
+
+    CD3DX12_VIEWPORT m_viewport;
+    CD3DX12_RECT m_scissor;
+};
+
+int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int nCmdShow)
+{
+    try
+    {
+        App app;
+        return app.Run(hInst, nCmdShow);
+    }
+    catch (const std::exception&amp; e)
+    {
+        MessageBoxA(nullptr, e.what(), &#34;Error&#34;, MB_OK | MB_ICONERROR);
+        return -1;
+    }
+}
+
+// shader.hlsl
+cbuffer FrameCB : register(b0)
+{
+    row_major float4x4 g_ViewProj;
+    float4 g_Camera;
+    float4 g_Params;
+};
+
+struct VSIn
+{
+    float3 pos       : POSITION;
+    float4 color     : COLOR;
+    float2 instance   : INSTANCEPOS;
+    float  scale     : INSTANCESCALE;
+    float4 instColor : INSTANCECOLOR;
+};
+
+struct VSOut
+{
+    float4 pos   : SV_POSITION;
+    float4 color : COLOR;
+};
+
+VSOut VSMain(VSIn i)
+{
+    VSOut o;
+
+    float3 local = i.pos * i.scale;
+    float3 world = local + float3(i.instance.xy, 0.0f);
+
+    o.pos = mul(float4(world, 1.0f), g_ViewProj);
+    o.color = i.color * i.instColor;
+    return o;
+}
+
+float4 PSMain(VSOut i) : SV_Target
+{
+    return i.color;
+}
+</code></pre>
+  
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>

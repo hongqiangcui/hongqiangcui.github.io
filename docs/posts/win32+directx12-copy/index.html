@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>ExecuteIndirect &amp; GPU culling (Win32 &#43; DirectX12) | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>ExecuteIndirect &amp; GPU culling (Win32 &#43; DirectX12)</h1>
+
+  
+  
+  <time datetime="0001-01-01T00:00:00&#43;00:00">January 1, 1</time>
+
+  <pre tabindex="0"><code>// main.cpp
+#include &lt;windows.h&gt;
+#include &lt;wrl.h&gt;
+#include &lt;dxgi1_6.h&gt;
+#include &lt;d3d12.h&gt;
+#include &lt;d3dcompiler.h&gt;
+#include &lt;DirectXMath.h&gt;
+#include &lt;d3dx12.h&gt;
+
+#include &lt;cstdint&gt;
+#include &lt;cstring&gt;
+#include &lt;stdexcept&gt;
+#include &lt;string&gt;
+
+using Microsoft::WRL::ComPtr;
+using namespace DirectX;
+
+static const UINT FrameCount = 2;
+static const UINT Width = 1280;
+static const UINT Height = 720;
+
+static const UINT kGridWidth = 128;
+static const UINT kInstanceCount = kGridWidth * kGridWidth;
+static const float kSpacing = 1.5f;
+static const float kCullHalfExtent = 32.0f;
+static const float kQuadHalfSize = 0.35f;
+
+static void ThrowIfFailed(HRESULT hr)
+{
+    if (FAILED(hr))
+        throw std::runtime_error(&#34;D3D12 call failed.&#34;);
+}
+
+static UINT Align256(UINT size)
+{
+    return (size + 255u) &amp; ~255u;
+}
+
+struct Vertex
+{
+    float position[3];
+    float color[4];
+};
+
+struct alignas(256) PerFrameCBData
+{
+    XMFLOAT4X4 ViewProj;  // row_major in HLSL
+    XMFLOAT4 Params0;     // x cameraX, y cameraY, z gridWidth, w instanceCount
+    XMFLOAT4 Params1;     // x spacing, y cullHalfExtent, z quadHalfSize, w unused
+};
+
+struct IndirectCommandPacked
+{
+    UINT BaseInstance;
+    UINT VertexCountPerInstance;
+    UINT InstanceCount;
+    UINT StartVertexLocation;
+    UINT StartInstanceLocation;
+};
+
+class App
+{
+public:
+    int Run(HINSTANCE hInst, int nCmdShow)
+    {
+        InitWindow(hInst, nCmdShow);
+        InitD3D();
+        MainLoop();
+        WaitForGpu();
+        if (m_fenceEvent) CloseHandle(m_fenceEvent);
+        return 0;
+    }
+
+private:
+    void InitWindow(HINSTANCE hInst, int nCmdShow)
+    {
+        WNDCLASSEXW wc = {};
+        wc.cbSize = sizeof(wc);
+        wc.style = CS_HREDRAW | CS_VREDRAW;
+        wc.lpfnWndProc = WindowProc;
+        wc.hInstance = hInst;
+        wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+        wc.lpszClassName = L&#34;GPUCullingExecuteIndirectWindow&#34;;
+
+        RegisterClassExW(&amp;wc);
+
+        RECT r = { 0, 0, (LONG)Width, (LONG)Height };
+        AdjustWindowRect(&amp;r, WS_OVERLAPPEDWINDOW, FALSE);
+
+        m_hwnd = CreateWindowW(
+            wc.lpszClassName,
+            L&#34;GPU Culling + ExecuteIndirect&#34;,
+            WS_OVERLAPPEDWINDOW,
+            CW_USEDEFAULT, CW_USEDEFAULT,
+            r.right - r.left,
+            r.bottom - r.top,
+            nullptr, nullptr, hInst, this);
+
+        ShowWindow(m_hwnd, nCmdShow);
+        UpdateWindow(m_hwnd);
+    }
+
+    void InitD3D()
+    {
+#if defined(_DEBUG)
+        {
+            ComPtr&lt;ID3D12Debug&gt; debug;
+            if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&amp;debug))))
+            {
+                debug-&gt;EnableDebugLayer();
+            }
+        }
+#endif
+
+        ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&amp;m_factory)));
+
+        ThrowIfFailed(D3D12CreateDevice(
+            nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&amp;m_device)));
+
+        // Queue
+        {
+            D3D12_COMMAND_QUEUE_DESC q = {};
+            q.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+            ThrowIfFailed(m_device-&gt;CreateCommandQueue(&amp;q, IID_PPV_ARGS(&amp;m_queue)));
+        }
+
+        // Swap chain
+        {
+            DXGI_SWAP_CHAIN_DESC1 sc = {};
+            sc.BufferCount = FrameCount;
+            sc.Width = Width;
+            sc.Height = Height;
+            sc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+            sc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+            sc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+            sc.SampleDesc.Count = 1;
+
+            ComPtr&lt;IDXGISwapChain1&gt; sc1;
+            ThrowIfFailed(m_factory-&gt;CreateSwapChainForHwnd(
+                m_queue.Get(), m_hwnd, &amp;sc, nullptr, nullptr, &amp;sc1));
+            ThrowIfFailed(sc1.As(&amp;m_swapChain));
+            ThrowIfFailed(m_factory-&gt;MakeWindowAssociation(m_hwnd, DXGI_MWA_NO_ALT_ENTER));
+
+            m_frameIndex = m_swapChain-&gt;GetCurrentBackBufferIndex();
+        }
+
+        // RTV heap
+        {
+            D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+            desc.NumDescriptors = FrameCount;
+            desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+            ThrowIfFailed(m_device-&gt;CreateDescriptorHeap(&amp;desc, IID_PPV_ARGS(&amp;m_rtvHeap)));
+            m_rtvInc = m_device-&gt;GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+            CD3DX12_CPU_DESCRIPTOR_HANDLE h(m_rtvHeap-&gt;GetCPUDescriptorHandleForHeapStart());
+            for (UINT i = 0; i &lt; FrameCount; ++i)
+            {
+                ThrowIfFailed(m_swapChain-&gt;GetBuffer(i, IID_PPV_ARGS(&amp;m_backBuffers[i])));
+                m_device-&gt;CreateRenderTargetView(m_backBuffers[i].Get(), nullptr, h);
+                h.Offset(1, m_rtvInc);
+            }
+        }
+
+        for (UINT i = 0; i &lt; FrameCount; ++i)
+        {
+            ThrowIfFailed(m_device-&gt;CreateCommandAllocator(
+                D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&amp;m_allocators[i])));
+        }
+
+        CreateRootSignature();
+        CreateShadersAndPSO();
+        CreateGeometry();
+        CreateBuffers();
+        CreateCommandSignature();
+
+        ThrowIfFailed(m_device-&gt;CreateCommandList(
+            0,
+            D3D12_COMMAND_LIST_TYPE_DIRECT,
+            m_allocators[m_frameIndex].Get(),
+            m_graphicsPSO.Get(),
+            IID_PPV_ARGS(&amp;m_cmdList)));
+        ThrowIfFailed(m_cmdList-&gt;Close());
+
+        ThrowIfFailed(m_device-&gt;CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&amp;m_fence)));
+        m_fenceValue = 1;
+        m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+        if (!m_fenceEvent)
+            ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+
+        m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, (float)Width, (float)Height);
+        m_scissor = CD3DX12_RECT(0, 0, (LONG)Width, (LONG)Height);
+    }
+
+    void CreateRootSignature()
+    {
+        // 0: CBV b0
+        // 1: UAV u0 (indirect command buffer)
+        // 2: UAV u1 (visible count buffer)
+        // 3: 1x 32-bit constant at b1 (base instance for ExecuteIndirect)
+        CD3DX12_ROOT_PARAMETER params[4];
+        params[0].InitAsConstantBufferView(0);                 // b0
+        params[1].InitAsUnorderedAccessView(0);                // u0
+        params[2].InitAsUnorderedAccessView(1);                // u1
+        params[3].InitAsConstants(1, 1);                       // b1, 1 uint
+
+        CD3DX12_ROOT_SIGNATURE_DESC desc;
+        desc.Init(
+            _countof(params), params,
+            0, nullptr,
+            D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+        ComPtr&lt;ID3DBlob&gt; sig, err;
+        ThrowIfFailed(D3D12SerializeRootSignature(
+            &amp;desc, D3D_ROOT_SIGNATURE_VERSION_1, &amp;sig, &amp;err));
+
+        ThrowIfFailed(m_device-&gt;CreateRootSignature(
+            0, sig-&gt;GetBufferPointer(), sig-&gt;GetBufferSize(), IID_PPV_ARGS(&amp;m_rootSig)));
+    }
+
+    void CreateShadersAndPSO()
+    {
+        ComPtr&lt;ID3DBlob&gt; vs, ps, cs, err;
+
+        ThrowIfFailed(D3DCompileFromFile(
+            L&#34;shader.hlsl&#34;, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
+            &#34;VSMain&#34;, &#34;vs_5_0&#34;, 0, 0, &amp;vs, &amp;err));
+
+        ThrowIfFailed(D3DCompileFromFile(
+            L&#34;shader.hlsl&#34;, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
+            &#34;PSMain&#34;, &#34;ps_5_0&#34;, 0, 0, &amp;ps, &amp;err));
+
+        ThrowIfFailed(D3DCompileFromFile(
+            L&#34;shader.hlsl&#34;, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
+            &#34;CSMain&#34;, &#34;cs_5_0&#34;, 0, 0, &amp;cs, &amp;err));
+
+        D3D12_INPUT_ELEMENT_DESC inputLayout[] =
+        {
+            { &#34;POSITION&#34;, 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+            { &#34;COLOR&#34;,    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        };
+
+        // Graphics PSO
+        {
+            D3D12_GRAPHICS_PIPELINE_STATE_DESC pso = {};
+            pso.InputLayout = { inputLayout, _countof(inputLayout) };
+            pso.pRootSignature = m_rootSig.Get();
+            pso.VS = { vs-&gt;GetBufferPointer(), vs-&gt;GetBufferSize() };
+            pso.PS = { ps-&gt;GetBufferPointer(), ps-&gt;GetBufferSize() };
+            pso.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+            pso.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+            pso.DepthStencilState.DepthEnable = FALSE;
+            pso.DepthStencilState.StencilEnable = FALSE;
+            pso.SampleMask = UINT_MAX;
+            pso.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+            pso.NumRenderTargets = 1;
+            pso.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+            pso.SampleDesc.Count = 1;
+
+            ThrowIfFailed(m_device-&gt;CreateGraphicsPipelineState(&amp;pso, IID_PPV_ARGS(&amp;m_graphicsPSO)));
+        }
+
+        // Compute PSO
+        {
+            D3D12_COMPUTE_PIPELINE_STATE_DESC pso = {};
+            pso.pRootSignature = m_rootSig.Get();
+            pso.CS = { cs-&gt;GetBufferPointer(), cs-&gt;GetBufferSize() };
+            ThrowIfFailed(m_device-&gt;CreateComputePipelineState(&amp;pso, IID_PPV_ARGS(&amp;m_computePSO)));
+        }
+    }
+
+    void CreateGeometry()
+    {
+        // 一个二维小方块（用 triangle strip 画）
+        const Vertex vertices[] =
+        {
+            { { -0.5f,  0.5f, 1.0f }, { 1.f, 0.f, 0.f, 1.f } }, // TL
+            { {  0.5f,  0.5f, 1.0f }, { 0.f, 1.f, 0.f, 1.f } }, // TR
+            { { -0.5f, -0.5f, 1.0f }, { 0.f, 0.f, 1.f, 1.f } }, // BL
+            { {  0.5f, -0.5f, 1.0f }, { 1.f, 1.f, 0.f, 1.f } }, // BR
+        };
+
+        const UINT vbSize = sizeof(vertices);
+
+        ThrowIfFailed(m_device-&gt;CreateCommittedResource(
+            &amp;CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+            D3D12_HEAP_FLAG_NONE,
+            &amp;CD3DX12_RESOURCE_DESC::Buffer(vbSize),
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&amp;m_vertexBuffer)));
+
+        void* mapped = nullptr;
+        CD3DX12_RANGE range(0, 0);
+        ThrowIfFailed(m_vertexBuffer-&gt;Map(0, &amp;range, &amp;mapped));
+        memcpy(mapped, vertices, sizeof(vertices));
+        m_vertexBuffer-&gt;Unmap(0, nullptr);
+
+        m_vbView.BufferLocation = m_vertexBuffer-&gt;GetGPUVirtualAddress();
+        m_vbView.StrideInBytes = sizeof(Vertex);
+        m_vbView.SizeInBytes = vbSize;
+    }
+
+    void CreateBuffers()
+    {
+        const UINT indirectBufferSize = kInstanceCount * sizeof(IndirectCommandPacked);
+
+        // Indirect command buffer (UAV write by compute, then ExecuteIndirect reads it)
+        ThrowIfFailed(m_device-&gt;CreateCommittedResource(
+            &amp;CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+            D3D12_HEAP_FLAG_NONE,
+            &amp;CD3DX12_RESOURCE_DESC::Buffer(
+                indirectBufferSize,
+                D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
+            D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+            nullptr,
+            IID_PPV_ARGS(&amp;m_indirectCommandBuffer)));
+
+        // Visible count buffer (4 bytes, GPU writes it, ExecuteIndirect reads it as count buffer)
+        ThrowIfFailed(m_device-&gt;CreateCommittedResource(
+            &amp;CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+            D3D12_HEAP_FLAG_NONE,
+            &amp;CD3DX12_RESOURCE_DESC::Buffer(
+                sizeof(UINT),
+                D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            nullptr,
+            IID_PPV_ARGS(&amp;m_visibleCountBuffer)));
+
+        // Zero upload buffer used to reset the visible count each frame
+        ThrowIfFailed(m_device-&gt;CreateCommittedResource(
+            &amp;CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+            D3D12_HEAP_FLAG_NONE,
+            &amp;CD3DX12_RESOURCE_DESC::Buffer(Align256(sizeof(UINT))),
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&amp;m_zeroUploadBuffer)));
+
+        void* mapped = nullptr;
+        CD3DX12_RANGE range(0, 0);
+        ThrowIfFailed(m_zeroUploadBuffer-&gt;Map(0, &amp;range, &amp;mapped));
+        std::memset(mapped, 0, sizeof(UINT));
+        m_zeroUploadBuffer-&gt;Unmap(0, nullptr);
+
+        // Per-frame CB upload
+        const UINT cbSize = Align256(sizeof(PerFrameCBData));
+        ThrowIfFailed(m_device-&gt;CreateCommittedResource(
+            &amp;CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+            D3D12_HEAP_FLAG_NONE,
+            &amp;CD3DX12_RESOURCE_DESC::Buffer(cbSize),
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&amp;m_cbUpload)));
+
+        ThrowIfFailed(m_cbUpload-&gt;Map(0, &amp;range, &amp;m_cbMapped));
+        std::memset(m_cbMapped, 0, cbSize);
+    }
+
+    void CreateCommandSignature()
+    {
+        // Command layout:
+        // [0] base instance (1 DWORD root constant for b1)
+        // [1..4] D3D12_DRAW_ARGUMENTS
+        D3D12_INDIRECT_ARGUMENT_DESC args[2] = {};
+        args[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+        args[0].Constant.RootParameterIndex = 3;        // root param 3 = b1
+        args[0].Constant.DestOffsetIn32BitValues = 0;
+        args[0].Constant.Num32BitValuesToSet = 1;
+
+        args[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+
+        D3D12_COMMAND_SIGNATURE_DESC desc = {};
+        desc.ByteStride = sizeof(IndirectCommandPacked);
+        desc.NumArgumentDescs = _countof(args);
+        desc.pArgumentDescs = args;
+        desc.NodeMask = 0;
+
+        ThrowIfFailed(m_device-&gt;CreateCommandSignature(
+            &amp;desc, m_rootSig.Get(), IID_PPV_ARGS(&amp;m_commandSignature)));
+    }
+
+    void MainLoop()
+    {
+        MSG msg = {};
+        while (msg.message != WM_QUIT)
+        {
+            if (PeekMessage(&amp;msg, nullptr, 0, 0, PM_REMOVE))
+            {
+                TranslateMessage(&amp;msg);
+                DispatchMessage(&amp;msg);
+            }
+            else
+            {
+                Render();
+            }
+        }
+    }
+
+    void UpdatePerFrameCB()
+    {
+        float t = (float)GetTickCount64() * 0.001f;
+
+        float camX = std::sinf(t * 0.45f) * 18.0f;
+        float camY = std::cosf(t * 0.33f) * 12.0f;
+
+        // 2D orthographic view-projection
+        XMMATRIX view = XMMatrixTranslation(-camX, -camY, 0.0f);
+        XMMATRIX proj = XMMatrixOrthographicLH(64.0f, 36.0f, 0.0f, 10.0f);
+        XMMATRIX viewProj = view * proj;
+
+        PerFrameCBData cb = {};
+        XMStoreFloat4x4(&amp;cb.ViewProj, viewProj);
+        cb.Params0 = XMFLOAT4(camX, camY, (float)kGridWidth, (float)kInstanceCount);
+        cb.Params1 = XMFLOAT4(kSpacing, kCullHalfExtent, kQuadHalfSize, 0.0f);
+
+        std::memcpy(m_cbMapped, &amp;cb, sizeof(cb));
+    }
+
+    void PopulateCommandList()
+    {
+        ThrowIfFailed(m_allocators[m_frameIndex]-&gt;Reset());
+        ThrowIfFailed(m_cmdList-&gt;Reset(m_allocators[m_frameIndex].Get(), nullptr));
+
+        UpdatePerFrameCB();
+
+        // Reset visible count to 0 each frame
+        {
+            auto toCopyDest = CD3DX12_RESOURCE_BARRIER::Transition(
+                m_visibleCountBuffer.Get(),
+                D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT,
+                D3D12_RESOURCE_STATE_COPY_DEST);
+            m_cmdList-&gt;ResourceBarrier(1, &amp;toCopyDest);
+
+            m_cmdList-&gt;CopyBufferRegion(
+                m_visibleCountBuffer.Get(), 0,
+                m_zeroUploadBuffer.Get(), 0,
+                sizeof(UINT));
+
+            auto toUav = CD3DX12_RESOURCE_BARRIER::Transition(
+                m_visibleCountBuffer.Get(),
+                D3D12_RESOURCE_STATE_COPY_DEST,
+                D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+            m_cmdList-&gt;ResourceBarrier(1, &amp;toUav);
+        }
+
+        // Ensure indirect command buffer is writable by compute
+        {
+            auto toUav = CD3DX12_RESOURCE_BARRIER::Transition(
+                m_indirectCommandBuffer.Get(),
+                D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT,
+                D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+            m_cmdList-&gt;ResourceBarrier(1, &amp;toUav);
+        }
+
+        // Compute culling -&gt; write visible indirect commands
+        m_cmdList-&gt;SetPipelineState(m_computePSO.Get());
+        m_cmdList-&gt;SetComputeRootSignature(m_rootSig.Get());
+        m_cmdList-&gt;SetComputeRootConstantBufferView(0, m_cbUpload-&gt;GetGPUVirtualAddress());
+        m_cmdList-&gt;SetComputeRootUnorderedAccessView(1, m_indirectCommandBuffer-&gt;GetGPUVirtualAddress());
+        m_cmdList-&gt;SetComputeRootUnorderedAccessView(2, m_visibleCountBuffer-&gt;GetGPUVirtualAddress());
+
+        UINT dispatchX = (kInstanceCount + 63u) / 64u;
+        m_cmdList-&gt;Dispatch(dispatchX, 1, 1);
+
+        // Make UAV writes visible before ExecuteIndirect reads them
+        m_cmdList-&gt;ResourceBarrier(1, &amp;CD3DX12_RESOURCE_BARRIER::UAV(m_indirectCommandBuffer.Get()));
+        m_cmdList-&gt;ResourceBarrier(1, &amp;CD3DX12_RESOURCE_BARRIER::UAV(m_visibleCountBuffer.Get()));
+
+        // Transition to indirect-argument state
+        {
+            auto toIndirect = CD3DX12_RESOURCE_BARRIER::Transition(
+                m_indirectCommandBuffer.Get(),
+                D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+                D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+            m_cmdList-&gt;ResourceBarrier(1, &amp;toIndirect);
+
+            auto toIndirectCount = CD3DX12_RESOURCE_BARRIER::Transition(
+                m_visibleCountBuffer.Get(),
+                D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+                D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+            m_cmdList-&gt;ResourceBarrier(1, &amp;toIndirectCount);
+        }
+
+        // Render
+        auto toRT = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_backBuffers[m_frameIndex].Get(),
+            D3D12_RESOURCE_STATE_PRESENT,
+            D3D12_RESOURCE_STATE_RENDER_TARGET);
+        m_cmdList-&gt;ResourceBarrier(1, &amp;toRT);
+
+        CD3DX12_CPU_DESCRIPTOR_HANDLE rtv(
+            m_rtvHeap-&gt;GetCPUDescriptorHandleForHeapStart(),
+            (INT)m_frameIndex,
+            m_rtvInc);
+
+        FLOAT clear[] = { 0.08f, 0.08f, 0.12f, 1.0f };
+        m_cmdList-&gt;OMSetRenderTargets(1, &amp;rtv, FALSE, nullptr);
+        m_cmdList-&gt;ClearRenderTargetView(rtv, clear, 0, nullptr);
+
+        m_cmdList-&gt;SetGraphicsRootSignature(m_rootSig.Get());
+        m_cmdList-&gt;SetPipelineState(m_graphicsPSO.Get());
+        m_cmdList-&gt;SetGraphicsRootConstantBufferView(0, m_cbUpload-&gt;GetGPUVirtualAddress());
+
+        m_cmdList-&gt;RSSetViewports(1, &amp;m_viewport);
+        m_cmdList-&gt;RSSetScissorRects(1, &amp;m_scissor);
+        m_cmdList-&gt;IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+        m_cmdList-&gt;IASetVertexBuffers(0, 1, &amp;m_vbView);
+
+        // 真正的 GPU-driven draw
+        m_cmdList-&gt;ExecuteIndirect(
+            m_commandSignature.Get(),
+            kInstanceCount,
+            m_indirectCommandBuffer.Get(),
+            0,
+            m_visibleCountBuffer.Get(),
+            0);
+
+        auto toPresent = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_backBuffers[m_frameIndex].Get(),
+            D3D12_RESOURCE_STATE_RENDER_TARGET,
+            D3D12_RESOURCE_STATE_PRESENT);
+        m_cmdList-&gt;ResourceBarrier(1, &amp;toPresent);
+
+        ThrowIfFailed(m_cmdList-&gt;Close());
+    }
+
+    void Render()
+    {
+        PopulateCommandList();
+
+        ID3D12CommandList* lists[] = { m_cmdList.Get() };
+        m_queue-&gt;ExecuteCommandLists(1, lists);
+
+        ThrowIfFailed(m_swapChain-&gt;Present(1, 0));
+        MoveToNextFrame();
+    }
+
+    void WaitForGpu()
+    {
+        ThrowIfFailed(m_queue-&gt;Signal(m_fence.Get(), m_fenceValue));
+        ThrowIfFailed(m_fence-&gt;SetEventOnCompletion(m_fenceValue, m_fenceEvent));
+        WaitForSingleObject(m_fenceEvent, INFINITE);
+        ++m_fenceValue;
+    }
+
+    void MoveToNextFrame()
+    {
+        const UINT64 currentFence = m_fenceValue;
+        ThrowIfFailed(m_queue-&gt;Signal(m_fence.Get(), currentFence));
+        ++m_fenceValue;
+
+        m_frameIndex = m_swapChain-&gt;GetCurrentBackBufferIndex();
+
+        if (m_fence-&gt;GetCompletedValue() &lt; currentFence)
+        {
+            ThrowIfFailed(m_fence-&gt;SetEventOnCompletion(currentFence, m_fenceEvent));
+            WaitForSingleObject(m_fenceEvent, INFINITE);
+        }
+    }
+
+    static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+    {
+        App* app = nullptr;
+
+        if (msg == WM_NCCREATE)
+        {
+            auto* cs = reinterpret_cast&lt;CREATESTRUCTW*&gt;(lParam);
+            app = reinterpret_cast&lt;App*&gt;(cs-&gt;lpCreateParams);
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast&lt;LONG_PTR&gt;(app));
+        }
+        else
+        {
+            app = reinterpret_cast&lt;App*&gt;(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+        }
+
+        if (msg == WM_DESTROY)
+        {
+            PostQuitMessage(0);
+            return 0;
+        }
+
+        return DefWindowProcW(hwnd, msg, wParam, lParam);
+    }
+
+private:
+    HWND m_hwnd = nullptr;
+
+    ComPtr&lt;IDXGIFactory4&gt; m_factory;
+    ComPtr&lt;ID3D12Device&gt; m_device;
+    ComPtr&lt;ID3D12CommandQueue&gt; m_queue;
+    ComPtr&lt;IDXGISwapChain3&gt; m_swapChain;
+
+    ComPtr&lt;ID3D12DescriptorHeap&gt; m_rtvHeap;
+    ComPtr&lt;ID3D12Resource&gt; m_backBuffers[FrameCount];
+    ComPtr&lt;ID3D12CommandAllocator&gt; m_allocators[FrameCount];
+    ComPtr&lt;ID3D12GraphicsCommandList&gt; m_cmdList;
+
+    ComPtr&lt;ID3D12RootSignature&gt; m_rootSig;
+    ComPtr&lt;ID3D12PipelineState&gt; m_graphicsPSO;
+    ComPtr&lt;ID3D12PipelineState&gt; m_computePSO;
+    ComPtr&lt;ID3D12CommandSignature&gt; m_commandSignature;
+
+    ComPtr&lt;ID3D12Resource&gt; m_vertexBuffer;
+    D3D12_VERTEX_BUFFER_VIEW m_vbView = {};
+
+    ComPtr&lt;ID3D12Resource&gt; m_indirectCommandBuffer;
+    ComPtr&lt;ID3D12Resource&gt; m_visibleCountBuffer;
+    ComPtr&lt;ID3D12Resource&gt; m_zeroUploadBuffer;
+
+    ComPtr&lt;ID3D12Resource&gt; m_cbUpload;
+    void* m_cbMapped = nullptr;
+
+    ComPtr&lt;ID3D12Fence&gt; m_fence;
+    UINT64 m_fenceValue = 0;
+    HANDLE m_fenceEvent = nullptr;
+
+    UINT m_frameIndex = 0;
+    UINT m_rtvInc = 0;
+
+    CD3DX12_VIEWPORT m_viewport;
+    CD3DX12_RECT m_scissor;
+};
+
+int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int nCmdShow)
+{
+    try
+    {
+        App app;
+        return app.Run(hInst, nCmdShow);
+    }
+    catch (const std::exception&amp; e)
+    {
+        MessageBoxA(nullptr, e.what(), &#34;Error&#34;, MB_OK | MB_ICONERROR);
+        return -1;
+    }
+}
+</code></pre>
+  
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>
