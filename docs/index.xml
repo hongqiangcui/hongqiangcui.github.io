@@ -28,6 +28,13 @@
 				<description>从UE资深Render工程师的角度分析Mesh Shader Pipeline与传统Raster Pipeline的本质区别，以及Mesh Shader、GPU Driven Rendering和Nanite之间的关系。</description>
 			</item>
 			<item>
+				<title>UE4 / UE5 Rendering Pipeline &amp; World Organization</title>
+				<link>http://localhost:1313/posts/ue4-/-ue5-rendering-pipeline--world-organization/</link>
+				<pubDate>Thu, 06 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/ue4-/-ue5-rendering-pipeline--world-organization/</guid>
+				<description></description>
+			</item>
+			<item>
 				<title>Understanding Unreal Engine Object System</title>
 				<link>http://localhost:1313/posts/understanding-unreal-object-system/</link>
 				<pubDate>Thu, 06 Aug 2026 00:00:00 +0000</pubDate>

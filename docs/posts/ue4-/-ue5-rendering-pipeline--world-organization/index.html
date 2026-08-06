@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>UE4 / UE5 Rendering Pipeline &amp; World Organization | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>UE4 / UE5 Rendering Pipeline &amp; World Organization</h1>
+
+  
+  
+  <time datetime="2026-08-06T00:00:00&#43;00:00">August 6, 2026</time>
+
+  <h1 id="ue4--ue5-rendering-pipeline--world-organization">UE4 / UE5 Rendering Pipeline &amp; World Organization</h1>
+<blockquote>
+<p>本文总结 UE4 / UE5（无论是否启用 Lumen）的完整渲染顺序，以及大型开放世界（尤其移动端）的资源组织、Streaming、LOD、Render Layer 设计。</p>
+</blockquote>
+<p><img
+  class="ue-image"
+  src="/images/ue/passes-pipeline.jpg"
+  alt="UE5 Resolution Pipeline"
+  loading="lazy"
+/></p>
+<hr>
+<h1 id="overall-architecture">Overall Architecture</h1>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">flowchart TD
+
+A[World Data / Authoring]
+
+A --&gt; B[Streaming Layer]
+B --&gt; C[Visibility Layer]
+C --&gt; D[Render Layer Stack]
+D --&gt; E[Lighting Layer]
+E --&gt; F[Resolution &amp; Temporal]
+F --&gt; G[Post Process &amp; UI]
+G --&gt; H[Present]
+</code></pre><p>整个渲染可以理解为：</p>
+<pre tabindex="0"><code>Authoring
+    ↓
+Streaming
+    ↓
+Visibility
+    ↓
+Rendering
+    ↓
+Lighting
+    ↓
+Temporal
+    ↓
+PostProcess
+</code></pre><hr>
+<h1 id="1-world-data--authoring">1. World Data / Authoring</h1>
+<p>世界最初只是资源组织。</p>
+<pre tabindex="0"><code>World Data
+├── Terrain
+├── Static Meshes
+├── Foliage
+├── Buildings
+├── Characters
+└── Lighting Data
+</code></pre><h2 id="terrain">Terrain</h2>
+<p>包括：</p>
+<ul>
+<li>Heightmap</li>
+<li>Runtime Virtual Texture</li>
+<li>Landscape Chunks</li>
+</ul>
+<hr>
+<h2 id="static-mesh">Static Mesh</h2>
+<p>包含：</p>
+<ul>
+<li>Nanite（PC / Console）</li>
+<li>普通 StaticMesh（Mobile）</li>
+<li>Instancing</li>
+</ul>
+<hr>
+<h2 id="vegetation">Vegetation</h2>
+<p>包括：</p>
+<ul>
+<li>Grass</li>
+<li>Trees</li>
+<li>Cards</li>
+<li>Cluster</li>
+</ul>
+<hr>
+<h2 id="buildings--props">Buildings / Props</h2>
+<p>静态场景：</p>
+<ul>
+<li>建筑</li>
+<li>道路</li>
+<li>小物件</li>
+</ul>
+<hr>
+<h2 id="characters">Characters</h2>
+<p>动态对象：</p>
+<ul>
+<li>Character</li>
+<li>NPC</li>
+<li>Vehicle</li>
+</ul>
+<hr>
+<h2 id="lighting-data">Lighting Data</h2>
+<p>主要包括：</p>
+<ul>
+<li>Lightmaps</li>
+<li>Reflection Captures</li>
+<li>Probe</li>
+<li>SH Data</li>
+</ul>
+<hr>
+<h1 id="2-streaming-layer">2. Streaming Layer</h1>
+<p>大型世界首先决定：</p>
+<blockquote>
+<p><strong>哪些资源应该进入 GPU。</strong></p>
+</blockquote>
+<pre tabindex="0"><code>Streaming Layer
+├── World Partition
+├── Grid Cells
+├── Render Radius
+├── Collision Radius
+├── AI Radius
+├── HLOD
+└── Material LOD
+</code></pre><h2 id="streaming-policy">Streaming Policy</h2>
+<p>不同系统可以拥有不同半径：</p>
+<table>
+	<thead>
+			<tr>
+					<th>System</th>
+					<th style="text-align: right">Radius</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Rendering</td>
+					<td style="text-align: right">300m</td>
+			</tr>
+			<tr>
+					<td>Collision</td>
+					<td style="text-align: right">150m</td>
+			</tr>
+			<tr>
+					<td>AI</td>
+					<td style="text-align: right">80m</td>
+			</tr>
+	</tbody>
+</table>
+<p>因此：</p>
+<p>玩家虽然能看到远方，</p>
+<p>但：</p>
+<ul>
+<li>AI 不存在</li>
+<li>Physics 不存在</li>
+<li>Collision 不存在</li>
+</ul>
+<hr>
+<h2 id="hlod">HLOD</h2>
+<p>远距离：</p>
+<pre tabindex="0"><code>Building A
+Building B
+Building C
+</code></pre><p>Bake 成：</p>
+<pre tabindex="0"><code>HLOD Cluster
+</code></pre><p>一次 Draw Call。</p>
+<hr>
+<h2 id="material-lod">Material LOD</h2>
+<p>远距离：</p>
+<ul>
+<li>简化 Shader</li>
+<li>Texture Mip Bias</li>
+<li>去掉 Normal</li>
+<li>去掉 Detail Map</li>
+</ul>
+<hr>
+<h1 id="3-visibility-layer">3. Visibility Layer</h1>
+<p>Streaming 完以后：</p>
+<p>进入真正的 Visibility。</p>
+<pre tabindex="0"><code>Visibility
+├── Frustum Culling
+├── HZB Occlusion
+├── Cluster Culling
+└── Draw Lists
+</code></pre><h2 id="frustum-culling">Frustum Culling</h2>
+<p>视锥外：</p>
+<p>直接 Cull。</p>
+<hr>
+<h2 id="hzb-occlusion">HZB Occlusion</h2>
+<p>利用上一帧 Depth：</p>
+<p>判断：</p>
+<pre tabindex="0"><code>Building A
+</code></pre><p>是否被：</p>
+<pre tabindex="0"><code>Building B
+</code></pre><p>挡住。</p>
+<p>挡住：</p>
+<p>不提交 Draw。</p>
+<hr>
+<h2 id="cluster-culling">Cluster Culling</h2>
+<p>Instance：</p>
+<pre tabindex="0"><code>10000 Trees
+</code></pre><p>不会一个一个判断。</p>
+<p>而是：</p>
+<pre tabindex="0"><code>Cluster
+</code></pre><p>整体 Cull。</p>
+<hr>
+<h2 id="draw-lists">Draw Lists</h2>
+<p>最后得到：</p>
+<pre tabindex="0"><code>Near
+Mid
+Far
+Sky
+</code></pre><p>四份 Draw List。</p>
+<hr>
+<h1 id="4-render-layer-stack">4. Render Layer Stack</h1>
+<p>真正开始绘制。</p>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">flowchart TD
+
+Sky --&gt; Far
+Far --&gt; Mid
+Mid --&gt; Near
+Near --&gt; Dynamic
+Dynamic --&gt; Transparent
+Transparent --&gt; FX
+</code></pre><hr>
+<h2 id="layer-0--sky">Layer 0 — Sky</h2>
+<p>包括：</p>
+<ul>
+<li>Skybox</li>
+<li>SkyAtmosphere</li>
+<li>Sun</li>
+<li>Moon</li>
+</ul>
+<p>特点：</p>
+<ul>
+<li>最少更新</li>
+<li>最便宜</li>
+</ul>
+<hr>
+<h2 id="layer-1--far">Layer 1 — Far</h2>
+<p>主要：</p>
+<ul>
+<li>HLOD</li>
+<li>Impostor</li>
+<li>Billboard</li>
+</ul>
+<p>特点：</p>
+<p>几乎是假 3D。</p>
+<hr>
+<h2 id="layer-2--mid">Layer 2 — Mid</h2>
+<p>包括：</p>
+<ul>
+<li>Simplified Mesh</li>
+<li>Cheap Material</li>
+<li>Instancing</li>
+</ul>
+<p>目标：</p>
+<p>降低 Pixel Cost。</p>
+<hr>
+<h2 id="layer-3--near">Layer 3 — Near</h2>
+<p>完整质量：</p>
+<ul>
+<li>真 Geometry</li>
+<li>真 Material</li>
+<li>真 Lighting</li>
+</ul>
+<p>但：</p>
+<p>严格控制预算。</p>
+<hr>
+<h2 id="layer-4--dynamic">Layer 4 — Dynamic</h2>
+<p>包括：</p>
+<ul>
+<li>Character</li>
+<li>NPC</li>
+<li>Vehicle</li>
+</ul>
+<p>通常：</p>
+<p>最后加入。</p>
+<hr>
+<h2 id="layer-5--transparency">Layer 5 — Transparency</h2>
+<p>包括：</p>
+<ul>
+<li>Glass</li>
+<li>Water</li>
+<li>Hair</li>
+</ul>
+<p>必须控制数量。</p>
+<p>原因：</p>
+<p>Overdraw。</p>
+<hr>
+<h2 id="layer-6--fx">Layer 6 — FX</h2>
+<p>包括：</p>
+<ul>
+<li>Niagara</li>
+<li>Particle</li>
+<li>Decal</li>
+</ul>
+<p>一般限制：</p>
+<ul>
+<li>粒子数</li>
+<li>Fillrate</li>
+<li>Lifetime</li>
+</ul>
+<hr>
+<h1 id="5-lighting-layer">5. Lighting Layer</h1>
+<p>真正光照阶段。</p>
+<pre tabindex="0"><code>Lighting
+├── Static
+├── Dynamic
+├── Probe
+├── Reflection
+└── Shadow
+</code></pre><hr>
+<h2 id="static-lighting">Static Lighting</h2>
+<p>移动端主要依赖：</p>
+<ul>
+<li>Lightmap</li>
+<li>AO</li>
+</ul>
+<p>占比最高。</p>
+<hr>
+<h2 id="dynamic-lighting">Dynamic Lighting</h2>
+<p>通常：</p>
+<pre tabindex="0"><code>1 Directional Light
+</code></pre><p>最多：</p>
+<pre tabindex="0"><code>1~2 Cascades
+</code></pre><hr>
+<h2 id="probe">Probe</h2>
+<p>动态物体：</p>
+<p>使用：</p>
+<ul>
+<li>SH</li>
+<li>Probe Volume</li>
+</ul>
+<p>而不是实时 GI。</p>
+<hr>
+<h2 id="reflection">Reflection</h2>
+<p>主要：</p>
+<ul>
+<li>Reflection Capture</li>
+<li>Prefiltered Cubemap</li>
+</ul>
+<p>通常：</p>
+<p>不用 SSR。</p>
+<hr>
+<h2 id="shadow">Shadow</h2>
+<p>一般：</p>
+<pre tabindex="0"><code>CSM
+</code></pre><p>角色：</p>
+<pre tabindex="0"><code>Capsule Shadow
+</code></pre><p>或者：</p>
+<pre tabindex="0"><code>Blob Shadow
+</code></pre><hr>
+<h1 id="6-resolution--temporal">6. Resolution &amp; Temporal</h1>
+<p>控制 GPU Budget。</p>
+<pre tabindex="0"><code>Resolution
+├── Dynamic Resolution
+├── Upscale
+├── TAA
+└── Fixed-rate Update
+</code></pre><hr>
+<h2 id="dynamic-resolution">Dynamic Resolution</h2>
+<p>例如：</p>
+<pre tabindex="0"><code>100%
+ ↓
+70%
+ ↓
+60%
+</code></pre><p>GPU 超预算时：</p>
+<p>自动降低 Resolution。</p>
+<hr>
+<h2 id="upscale">Upscale</h2>
+<p>移动端通常：</p>
+<ul>
+<li>FSR-like</li>
+<li>TSR Lite</li>
+<li>TAA Lite</li>
+</ul>
+<hr>
+<h2 id="history">History</h2>
+<p>只保留有限历史：</p>
+<p>避免：</p>
+<ul>
+<li>Ghosting</li>
+<li>Heavy Reprojection</li>
+</ul>
+<hr>
+<h2 id="fixed-rate-update">Fixed-rate Update</h2>
+<p>昂贵系统：</p>
+<p>例如：</p>
+<pre tabindex="0"><code>Reflection
+
+Cloud
+
+Probe
+</code></pre><p>每：</p>
+<pre tabindex="0"><code>N Frames
+</code></pre><p>更新一次。</p>
+<hr>
+<h1 id="7-post-process">7. Post Process</h1>
+<p>最后：</p>
+<pre tabindex="0"><code>Tonemap
+↓
+
+Bloom
+
+↓
+
+Color
+
+↓
+
+UI
+
+↓
+
+Present
+</code></pre><p>一般包括：</p>
+<ul>
+<li>Tonemap</li>
+<li>Color Grading</li>
+<li>Bloom（可选）</li>
+<li>UI</li>
+</ul>
+<hr>
+<h1 id="8-ue4--ue5-complete-render-pass-order">8. UE4 / UE5 Complete Render Pass Order</h1>
+<p>下面是真正高层 Render Pass 顺序。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Frame Begin
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── Build Views / Visibility
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── Shadow Depth Pass
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── PrePass (Optional)
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── BasePass (GBuffer + Depth)
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── Early Lighting Prep
+</span></span><span style="display:flex;"><span>│      ├── SSAO
+</span></span><span style="display:flex;"><span>│      ├── DFAO
+</span></span><span style="display:flex;"><span>│      └── Skylight
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── Lighting Pass
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── SkyAtmosphere
+</span></span><span style="display:flex;"><span>│      ├── LUT
+</span></span><span style="display:flex;"><span>│      ├── SkyView LUT
+</span></span><span style="display:flex;"><span>│      └── Atmosphere Combine
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── Volumetric Fog
+</span></span><span style="display:flex;"><span>│      ├── Global Scattering
+</span></span><span style="display:flex;"><span>│      └── Fog Raymarch
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── Volumetric Clouds
+</span></span><span style="display:flex;"><span>│      ├── Cloud Trace
+</span></span><span style="display:flex;"><span>│      ├── Cloud Lighting
+</span></span><span style="display:flex;"><span>│      └── Cloud Composite
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── Translucency
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── Post Process
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── UI
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>└── Present
+</span></span></code></pre></div><blockquote>
+<p><strong>注意：</strong></p>
+<p>SkyAtmosphere、Volumetric Fog、Volumetric Cloud 都发生在 <strong>BasePass 与 Lighting 完成之后</strong>，并在 <strong>Translucency 之前</strong> 完成合成。</p>
+</blockquote>
+<hr>
+<h1 id="9-four-ring-world-design-recommended-for-mobile">9. Four-Ring World Design (Recommended for Mobile)</h1>
+<p>大型开放世界通常不是统一质量。</p>
+<p>而是：</p>
+<p>按照距离拆成四圈。</p>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">flowchart LR
+
+Camera --&gt; Near
+Near --&gt; Mid
+Mid --&gt; Far
+Far --&gt; Sky
+</code></pre><hr>
+<h2 id="near-030m">Near (0–30m)</h2>
+<pre tabindex="0"><code>True Geometry
+True Material
+</code></pre><p>特点：</p>
+<ul>
+<li>Full Quality</li>
+<li>真几何</li>
+<li>真材质</li>
+<li>真法线</li>
+</ul>
+<p>预算：</p>
+<p>严格限制。</p>
+<hr>
+<h2 id="mid-30150m">Mid (30–150m)</h2>
+<pre tabindex="0"><code>Simplified Geometry
+
++
+
+Cheap Material
+</code></pre><p>特点：</p>
+<ul>
+<li>Mesh LOD</li>
+<li>Material LOD</li>
+<li>强 Instancing</li>
+<li>合批</li>
+</ul>
+<hr>
+<h2 id="far-1501000m">Far (150–1000m)</h2>
+<p>主要：</p>
+<pre tabindex="0"><code>HLOD
+
++
+
+Impostor
+</code></pre><p>几乎：</p>
+<pre tabindex="0"><code>Fake 3D
+</code></pre><p>只保留轮廓。</p>
+<hr>
+<h2 id="sky-">Sky (∞)</h2>
+<p>包括：</p>
+<ul>
+<li>Sky Dome</li>
+<li>Skybox</li>
+<li>Atmosphere</li>
+</ul>
+<p>几乎：</p>
+<p>静态。</p>
+<hr>
+<h1 id="10-distance-ring-summary">10. Distance Ring Summary</h1>
+<table>
+	<thead>
+			<tr>
+					<th>Ring</th>
+					<th style="text-align: right">Distance</th>
+					<th>Geometry</th>
+					<th>Material</th>
+					<th>Update Frequency</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Near</td>
+					<td style="text-align: right">0–30m</td>
+					<td>Full Detail</td>
+					<td>Full PBR</td>
+					<td>Every Frame</td>
+			</tr>
+			<tr>
+					<td>Mid</td>
+					<td style="text-align: right">30–150m</td>
+					<td>Simplified Mesh</td>
+					<td>Simplified Material</td>
+					<td>Every Frame</td>
+			</tr>
+			<tr>
+					<td>Far</td>
+					<td style="text-align: right">150–1000m</td>
+					<td>HLOD / Impostor</td>
+					<td>Extremely Cheap</td>
+					<td>Low Frequency</td>
+			</tr>
+			<tr>
+					<td>Sky</td>
+					<td style="text-align: right">∞</td>
+					<td>Sky Dome</td>
+					<td>Sky Material</td>
+					<td>Almost Static</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="11-key-design-principles">11. Key Design Principles</h1>
+<blockquote>
+<p>大型世界的性能优化，本质上不是“优化 DrawCall”，而是<strong>按距离管理资源、按层控制预算</strong>。</p>
+</blockquote>
+<p>核心思想包括：</p>
+<ul>
+<li><strong>Streaming</strong>：只加载需要的数据。</li>
+<li><strong>Visibility</strong>：只渲染可见对象。</li>
+<li><strong>Layered Rendering</strong>：按层组织渲染内容。</li>
+<li><strong>Distance Rings</strong>：不同距离使用不同资源形态。</li>
+<li><strong>Lighting Budget</strong>：静态光照优先，动态光照受限。</li>
+<li><strong>Temporal Budget</strong>：昂贵系统降低更新频率。</li>
+<li><strong>Post Budget</strong>：后处理保持极简，优先保证帧率。</li>
+</ul>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/rendering/">Rendering</a></li>
+        <li><a href="/tags/rendering-pipeline/">Rendering Pipeline</a></li>
+        <li><a href="/tags/world-partition/">World Partition</a></li>
+        <li><a href="/tags/mobile-rendering/">Mobile Rendering</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>
