@@ -10,9 +10,37 @@
 		
 		
 		
-			<lastBuildDate>Wed, 05 Aug 2026 00:00:00 +0000</lastBuildDate>
+			<lastBuildDate>Thu, 06 Aug 2026 00:00:00 +0000</lastBuildDate>
 		
 			<atom:link href="http://localhost:1313/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Lyra Starter Game 学习指南</title>
+				<link>http://localhost:1313/posts/lyra-starter-game-%E5%AD%A6%E4%B9%A0%E6%8C%87%E5%8D%97/</link>
+				<pubDate>Thu, 06 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/lyra-starter-game-%E5%AD%A6%E4%B9%A0%E6%8C%87%E5%8D%97/</guid>
+				<description>Epic 官方 Lyra Starter Game 学习路线与知识点整理。</description>
+			</item>
+			<item>
+				<title>Mesh Shader Pipeline vs Traditional Raster Pipeline —— 从UE5 Render架构角度理解</title>
+				<link>http://localhost:1313/posts/mesh-shader-pipeline/</link>
+				<pubDate>Thu, 06 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/mesh-shader-pipeline/</guid>
+				<description>从UE资深Render工程师的角度分析Mesh Shader Pipeline与传统Raster Pipeline的本质区别，以及Mesh Shader、GPU Driven Rendering和Nanite之间的关系。</description>
+			</item>
+			<item>
+				<title>Understanding Unreal Engine Object System</title>
+				<link>http://localhost:1313/posts/understanding-unreal-object-system/</link>
+				<pubDate>Thu, 06 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/understanding-unreal-object-system/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Unreal Engine Mobile Game Development Roadmap (2025)</title>
+				<link>http://localhost:1313/posts/unreal-engine-mobile-game-development-roadmap/</link>
+				<pubDate>Thu, 06 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/unreal-engine-mobile-game-development-roadmap/</guid>
+				<description></description>
+			</item>
 			<item>
 				<title>Hello</title>
 				<link>http://localhost:1313/posts/hello/</link>
@@ -117,6 +145,20 @@
 				<pubDate>Sun, 15 Jan 2023 09:00:00 -0700</pubDate>
 				<guid>http://localhost:1313/posts/post-1/</guid>
 				<description>&lt;p&gt;Tempor proident minim aliquip reprehenderit dolor et ad anim Lorem duis sint eiusmod. Labore ut ea duis dolor. Incididunt consectetur proident qui occaecat incididunt do nisi Lorem. Tempor do laborum elit laboris excepteur eiusmod do. Eiusmod nisi excepteur ut amet pariatur adipisicing Lorem.&lt;/p&gt;&#xA;&lt;p&gt;Occaecat nulla excepteur dolore excepteur duis eiusmod ullamco officia anim in voluptate ea occaecat officia. Cillum sint esse velit ea officia minim fugiat. Elit ea esse id aliquip pariatur cupidatat id duis minim incididunt ea ea. Anim ut duis sunt nisi. Culpa cillum sit voluptate voluptate eiusmod dolor. Enim nisi Lorem ipsum irure est excepteur voluptate eu in enim nisi. Nostrud ipsum Lorem anim sint labore consequat do.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title></title>
+				<link>http://localhost:1313/posts/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3-reflection%E5%8F%8D%E5%B0%84specular%E9%AB%98%E5%85%89lighting%E5%85%89%E7%85%A7%E4%B8%8E-giglobal-illumination/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3-reflection%E5%8F%8D%E5%B0%84specular%E9%AB%98%E5%85%89lighting%E5%85%89%E7%85%A7%E4%B8%8E-giglobal-illumination/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Unreal Engine C&#43;&#43; Handbook</title>
+				<link>http://localhost:1313/posts/unreal-engine-cpp-handbook/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/unreal-engine-cpp-handbook/</guid>
+				<description></description>
 			</item>
 	</channel>
 </rss>

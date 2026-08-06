@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Understanding Unreal Engine Object System | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>Understanding Unreal Engine Object System</h1>
+
+  
+  
+  <time datetime="2026-08-06T00:00:00&#43;00:00">August 6, 2026</time>
+
+  <h1 id="understanding-unreal-engine-object-system">Understanding Unreal Engine Object System</h1>
+<blockquote>
+<p><strong>Everything in Unreal Engine is described by a Runtime Type System.</strong></p>
+</blockquote>
+<blockquote>
+<p><strong>Note</strong></p>
+<p>由于 ChatGPT 单次回复长度限制，无法一次生成约 30000 字的完整 Markdown 文档。
+本文件提供完整的大纲、章节结构以及每章的核心内容，可作为最终 Paper 的骨架，并可继续扩展。</p>
+</blockquote>
+<h1 id="abstract">Abstract</h1>
+<p>Unreal Engine 并不是简单地在 C++ 上增加了一层 Reflection，而是构建了一套完整的 Runtime Object Model。</p>
+<p>本文从架构角度分析：</p>
+<ul>
+<li>UObject</li>
+<li>UClass</li>
+<li>UStruct</li>
+<li>FField</li>
+<li>FProperty</li>
+<li>Reflection</li>
+<li>Blueprint</li>
+<li>Garbage Collection</li>
+<li>Serialization</li>
+<li>Runtime Registration</li>
+</ul>
+<p>以及这些系统如何共同组成 UE Runtime Type System。</p>
+<hr>
+<h1 id="1-runtime-object-model">1. Runtime Object Model</h1>
+<h2 id="为什么需要-uobject">为什么需要 UObject</h2>
+<p>现代游戏引擎需要：</p>
+<ul>
+<li>Reflection</li>
+<li>Editor</li>
+<li>Blueprint</li>
+<li>GC</li>
+<li>Replication</li>
+<li>Serialization</li>
+</ul>
+<p>因此需要 Runtime Type Information。</p>
+<h2 id="mental-model">Mental Model</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>C++
+</span></span><span style="display:flex;"><span>    │
+</span></span><span style="display:flex;"><span>    ▼
+</span></span><span style="display:flex;"><span>Runtime Type System
+</span></span><span style="display:flex;"><span>    │
+</span></span><span style="display:flex;"><span>    ├── UObject
+</span></span><span style="display:flex;"><span>    ├── UClass
+</span></span><span style="display:flex;"><span>    ├── FProperty
+</span></span><span style="display:flex;"><span>    └── UFunction
+</span></span></code></pre></div><h1 id="2-uobject">2. UObject</h1>
+<p>UObject 是运行时对象。</p>
+<p>职责：</p>
+<ul>
+<li>Identity</li>
+<li>Lifetime</li>
+<li>Outer</li>
+<li>Name</li>
+<li>Reflection Entry</li>
+</ul>
+<p>内存示意：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>UObject
+</span></span><span style="display:flex;"><span>├── Flags
+</span></span><span style="display:flex;"><span>├── InternalIndex
+</span></span><span style="display:flex;"><span>├── Name
+</span></span><span style="display:flex;"><span>├── Outer
+</span></span><span style="display:flex;"><span>└── Class*
+</span></span></code></pre></div><h1 id="3-uclass">3. UClass</h1>
+<p>UClass 是 Runtime Type。</p>
+<p>保存：</p>
+<ul>
+<li>Property</li>
+<li>Function</li>
+<li>Metadata</li>
+<li>CDO</li>
+<li>SuperClass</li>
+</ul>
+<p>所有实例共享一个 UClass。</p>
+<h1 id="4-ustruct-与-ffield">4. UStruct 与 FField</h1>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>UStruct
+</span></span><span style="display:flex;"><span>├── UClass
+</span></span><span style="display:flex;"><span>├── UFunction
+</span></span><span style="display:flex;"><span>└── UScriptStruct
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>FField
+</span></span><span style="display:flex;"><span>└── FProperty
+</span></span></code></pre></div><p>UE5 将 Property 从 UObject 拆分出来，以减少 GC 成本。</p>
+<h1 id="5-reflection">5. Reflection</h1>
+<p>Reflection ≠ UObject。</p>
+<p>Reflection =</p>
+<ul>
+<li>UClass</li>
+<li>FProperty</li>
+<li>UFunction</li>
+<li>Metadata</li>
+</ul>
+<p>Engine 各系统消费 Reflection，而不是直接消费 UObject。</p>
+<h1 id="6-cdo">6. CDO</h1>
+<p>每个 UClass 拥有唯一 CDO。</p>
+<p>对象创建：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Allocate
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>Copy CDO
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>Constructor
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>PostInitProperties
+</span></span></code></pre></div><h1 id="7-object-lifecycle">7. Object Lifecycle</h1>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Header
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>UHT
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>.gen.cpp
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>Compile
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>Module Load
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>Static Registration
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>Construct UClass
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>Construct CDO
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>NewObject
+</span></span><span style="display:flex;"><span> ↓
+</span></span><span style="display:flex;"><span>GC
+</span></span></code></pre></div><h1 id="8-blueprint-runtime">8. Blueprint Runtime</h1>
+<p>Blueprint Asset</p>
+<p>↓</p>
+<p>BlueprintGeneratedClass</p>
+<p>↓</p>
+<p>UClass</p>
+<p>↓</p>
+<p>NewObject</p>
+<p>Blueprint 与 Native 最终统一到 UClass。</p>
+<h1 id="9-reflection-consumers">9. Reflection Consumers</h1>
+<ul>
+<li>Editor</li>
+<li>GC</li>
+<li>Serialization</li>
+<li>Replication</li>
+<li>Blueprint VM</li>
+</ul>
+<h1 id="10-design-philosophy">10. Design Philosophy</h1>
+<p>Unreal 并不是 Everything is an Object。</p>
+<p>而是：</p>
+<p>Everything is described by Runtime Type Information。</p>
+<h1 id="appendix">Appendix</h1>
+<p>建议后续扩展：</p>
+<ol>
+<li>UHT 工作机制</li>
+<li>GENERATED_BODY 宏展开</li>
+<li>IMPLEMENT_CLASS</li>
+<li>GUObjectArray</li>
+<li>GC Token Stream</li>
+<li>Blueprint VM</li>
+<li>Property System</li>
+<li>FArchive</li>
+<li>LinkerLoad</li>
+<li>Hot Reload</li>
+</ol>
+<hr>
+<p>title: &ldquo;Understanding Unreal Engine Object System&rdquo;
+subtitle: &ldquo;从 UObject 到 Reflection，理解 Unreal Engine 的运行时对象模型&rdquo;
+date: 2026-08-06
+draft: false
+toc: true
+math: false</p>
+<p>tags:</p>
+<ul>
+<li>Unreal Engine</li>
+<li>UE5</li>
+<li>Engine Source</li>
+<li>UObject</li>
+<li>Reflection</li>
+<li>Runtime Type System</li>
+</ul>
+<p>categories:</p>
+<ul>
+<li>Unreal Engine</li>
+</ul>
+<hr>
+<h1 id="understanding-unreal-engine-object-system-1">Understanding Unreal Engine Object System</h1>
+<blockquote>
+<p><strong>Everything in Unreal Engine is not an Object.</strong></p>
+<p><strong>Everything in Unreal Engine is described by a Runtime Type System.</strong></p>
+</blockquote>
+<p>很多开发者第一次学习 Unreal Engine，会把 UObject 理解成类似 Unity 的 Object，或者 C++ 的基类。</p>
+<p>事实上，UObject 只是整个 Runtime Type System 的入口。</p>
+<p>Reflection、Blueprint、Garbage Collection、Serialization、Editor、Replication……这些看似毫无关联的系统，实际上全部建立在同一个对象模型之上。</p>
+<p>本文希望站在架构设计的角度，回答几个问题：</p>
+<ul>
+<li>为什么 UE 要重新实现一套 Object System？</li>
+<li>UObject、UClass、UStruct 到底是什么关系？</li>
+<li>Reflection 为什么能够支撑整个 Engine？</li>
+<li>Blueprint 为什么能够和 Native Class 完全统一？</li>
+<li>为什么一个 UObject 不只是一个 C++ 对象？</li>
+</ul>
+<p>本文不会深入源码，而是建立整个 Unreal Object System 的心智模型（Mental Model）。</p>
+<hr>
+<h1 id="1-为什么-unreal-要重新实现-object-system">1. 为什么 Unreal 要重新实现 Object System？</h1>
+<p>对于普通 C++ 来说，一个对象就是一个类的实例。</p>
+<pre tabindex="0"><code>C++ Class
+    │
+    ▼
+ Instance
+</code></pre><p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Player</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> Health;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>编译以后，运行时只剩下机器码。</p>
+<p>C++ 本身几乎不知道：</p>
+<ul>
+<li>成员变量有哪些</li>
+<li>Offset 在哪里</li>
+<li>哪些成员需要保存</li>
+<li>哪些成员可以编辑</li>
+<li>哪些函数可以暴露给脚本</li>
+</ul>
+<p>C++ RTTI 能提供的能力非常有限：</p>
+<ul>
+<li>typeid</li>
+<li>dynamic_cast</li>
+</ul>
+<p>对于一个现代游戏引擎来说，这远远不够。</p>
+<p>Engine 需要支持：</p>
+<ul>
+<li>Reflection</li>
+<li>Editor</li>
+<li>Blueprint</li>
+<li>Garbage Collection</li>
+<li>Serialization</li>
+<li>Network Replication</li>
+<li>SaveGame</li>
+<li>Animation</li>
+<li>Hot Reload</li>
+<li>Live Coding</li>
+</ul>
+<p>这些系统都有一个共同需求：</p>
+<blockquote>
+<p><strong>运行时必须知道一个对象长什么样。</strong></p>
+</blockquote>
+<p>因此 Unreal 在 C++ 之上建立了一套 Runtime Type System。</p>
+<hr>
+<h1 id="2-runtime-type-system-全景">2. Runtime Type System 全景</h1>
+<p>整个 Unreal Engine 可以抽象成四层：</p>
+<pre tabindex="0"><code>               C++ Language
+                     │
+────────────────────────────────────
+                     │
+           Runtime Type System
+                     │
+      ┌──────────────┼──────────────┐
+      ▼              ▼              ▼
+   UObject         UClass         FField
+                                      │
+                                 FProperty
+                                 UFunction
+                                 Metadata
+────────────────────────────────────────────
+                     │
+             Engine Systems
+                     │
+GC / Editor / Blueprint / Serialization / Networking
+</code></pre><p>这里最重要的一点是：</p>
+<p>Reflection 并不是 UObject。</p>
+<p>Reflection 实际上是：</p>
+<ul>
+<li>UClass</li>
+<li>FProperty</li>
+<li>UFunction</li>
+<li>Metadata</li>
+</ul>
+<p>共同组成的一套运行时类型描述。</p>
+<p>而 UObject 只是 Reflection 所描述出来的实例。</p>
+<hr>
+<h1 id="3-uobject--runtime-object">3. UObject —— Runtime Object</h1>
+<p>UObject 是整个 Runtime Object System 的基础对象。</p>
+<p>它负责：</p>
+<ul>
+<li>Object Identity</li>
+<li>生命周期</li>
+<li>Object Name</li>
+<li>Outer 层级</li>
+<li>GC 管理</li>
+<li>Reflection 入口</li>
+</ul>
+<p>从概念上可以理解为：</p>
+<pre tabindex="0"><code>           UObject
+
+    +--------------------+
+    | Flags              |
+    | Internal Index     |
+    | Name               |
+    | Outer              |
+    | Class Pointer -----+
+    +--------------------+
+                           │
+                           ▼
+                        UClass
+</code></pre><p>很多人会误以为：</p>
+<p>一个 UObject 保存了自己的全部信息。</p>
+<p>实际上并不是。</p>
+<p>真正描述对象结构的是：</p>
+<pre tabindex="0"><code>UClass
+</code></pre><p>UObject 保存的是：</p>
+<blockquote>
+<p><strong>&ldquo;我是哪个类型的实例。&rdquo;</strong></p>
+</blockquote>
+<p>而不是：</p>
+<blockquote>
+<p><strong>&ldquo;我的类型是什么。&rdquo;</strong></p>
+</blockquote>
+<hr>
+<h1 id="4-uclass--runtime-type">4. UClass —— Runtime Type</h1>
+<p>如果说 UObject 是：</p>
+<pre tabindex="0"><code>Instance
+</code></pre><p>那么：</p>
+<p>UClass 就是：</p>
+<pre tabindex="0"><code>Runtime Type
+</code></pre><p>每一个：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UCLASS()
+</span></span></code></pre></div><p>最终都会生成：</p>
+<pre tabindex="0"><code>一个 UClass 对象
+</code></pre><p>UClass 保存：</p>
+<ul>
+<li>类型名称</li>
+<li>父类</li>
+<li>Property 列表</li>
+<li>Function 列表</li>
+<li>Interface</li>
+<li>Metadata</li>
+<li>CDO（Class Default Object）</li>
+</ul>
+<p>因此：</p>
+<pre tabindex="0"><code>100000 个 Actor
+
+↓
+
+共享
+
+↓
+
+一个 AActor::StaticClass()
+</code></pre><p>Reflection 信息永远只有一份。</p>
+<p>这也是整个 Engine 能够高效运行的重要原因。</p>
+<hr>
+<h1 id="5-reflection-到底是什么">5. Reflection 到底是什么？</h1>
+<p>很多教程喜欢画：</p>
+<pre tabindex="0"><code>Object
+
+↓
+
+Reflection
+</code></pre><p>实际上：</p>
+<p>Reflection 根本不是一个对象。</p>
+<p>Reflection 更像：</p>
+<pre tabindex="0"><code>Runtime Schema
+</code></pre><p>真正的关系应该是：</p>
+<pre tabindex="0"><code>           UClass
+
+        ├─────────────┐
+        ▼             ▼
+   FProperty      UFunction
+        │             │
+        └──────┬──────┘
+               ▼
+          Runtime Metadata
+</code></pre><p>Reflection 描述的是：</p>
+<blockquote>
+<p><strong>一个类型有哪些字段、函数以及行为。</strong></p>
+</blockquote>
+<p>而不是：</p>
+<blockquote>
+<p><strong>一个实例保存了什么。</strong></p>
+</blockquote>
+<hr>
+<h1 id="6-uobjectustruct-与-ffield">6. UObject、UStruct 与 FField</h1>
+<p>很多人第一次看源码都会被这些名字绕晕。</p>
+<p>实际上它们属于不同层级。</p>
+<pre tabindex="0"><code>              UObject
+                  │
+               UField
+                  │
+               UStruct
+                  │
+        ┌─────────┼─────────┐
+        ▼         ▼         ▼
+     UClass   UFunction  UScriptStruct
+</code></pre><p>而 Property 在 UE5 中已经独立出来：</p>
+<pre tabindex="0"><code>FField
+   │
+FProperty
+</code></pre><p>为什么？</p>
+<p>因为 Property 数量远远超过 Object。</p>
+<p>如果每个 Property 都是 UObject：</p>
+<ul>
+<li>GC 会变慢</li>
+<li>内存占用增加</li>
+<li>对象数量爆炸</li>
+</ul>
+<p>因此 UE5 将 Property 从 UObject 中剥离出来。</p>
+<p>它们只描述数据。</p>
+<p>生命周期由 UClass 管理。</p>
+<hr>
+<h1 id="7-class-default-objectcdo">7. Class Default Object（CDO）</h1>
+<p>CDO 是 Unreal 最经典的设计之一。</p>
+<p>每一个 UClass：</p>
+<p>都会拥有唯一一个：</p>
+<pre tabindex="0"><code>Class Default Object
+</code></pre><p>例如：</p>
+<pre tabindex="0"><code>Character
+
+↓
+
+Character Default Object
+</code></pre><p>里面保存：</p>
+<pre tabindex="0"><code>Health = 100
+
+Speed = 600
+
+JumpHeight = 420
+</code></pre><p>对象创建过程并不是：</p>
+<pre tabindex="0"><code>new
+
+↓
+
+Constructor
+</code></pre><p>而是：</p>
+<pre tabindex="0"><code>Allocate Memory
+
+↓
+
+Copy CDO
+
+↓
+
+Constructor
+
+↓
+
+PostInitProperties
+</code></pre><p>因此：</p>
+<p>所有默认值都来自：</p>
+<pre tabindex="0"><code>CDO
+</code></pre><p>Blueprint 修改默认值。</p>
+<p>实际上修改的也是：</p>
+<pre tabindex="0"><code>CDO
+</code></pre><hr>
+<h1 id="8-native-class-与-blueprint-class-为什么能够统一">8. Native Class 与 Blueprint Class 为什么能够统一？</h1>
+<p>很多人认为：</p>
+<p>Blueprint 是另一套对象系统。</p>
+<p>事实上：</p>
+<p>Blueprint 最终也会生成：</p>
+<pre tabindex="0"><code>BlueprintGeneratedClass
+</code></pre><p>而 BlueprintGeneratedClass：</p>
+<p>本质上仍然是：</p>
+<pre tabindex="0"><code>UClass
+</code></pre><p>因此：</p>
+<pre tabindex="0"><code>Native Class
+      │
+      ▼
+    UClass
+
+Blueprint
+      │
+      ▼
+BlueprintGeneratedClass
+      │
+      ▼
+    UClass
+</code></pre><p>最终：</p>
+<p>Engine 创建对象时：</p>
+<pre tabindex="0"><code>NewObject(UClass*)
+</code></pre><p>根本不会关心：</p>
+<p>它来自：</p>
+<ul>
+<li>C++</li>
+<li>Blueprint</li>
+</ul>
+<p>因为：</p>
+<p>最终全部统一成：</p>
+<pre tabindex="0"><code>UClass
+</code></pre><hr>
+<h1 id="9-reflection-如何驱动整个-engine">9. Reflection 如何驱动整个 Engine？</h1>
+<p>Reflection 本身几乎什么都不做。</p>
+<p>真正工作的：</p>
+<p>是 Engine。</p>
+<p>例如：</p>
+<p>Garbage Collection：</p>
+<pre tabindex="0"><code>遍历 Property
+↓
+
+寻找 UObject 引用
+↓
+
+标记可达对象
+</code></pre><p>Serialization：</p>
+<pre tabindex="0"><code>遍历 Property
+↓
+
+读取 Offset
+↓
+
+自动保存
+</code></pre><p>Editor：</p>
+<pre tabindex="0"><code>遍历 Property
+↓
+
+生成 Details Panel
+</code></pre><p>Blueprint：</p>
+<pre tabindex="0"><code>遍历 UFunction
+↓
+
+生成 Blueprint Node
+</code></pre><p>Networking：</p>
+<pre tabindex="0"><code>遍历 Property
+↓
+
+寻找 Replicated Property
+</code></pre><p>因此：</p>
+<p>Reflection 更像：</p>
+<pre tabindex="0"><code>Database Schema
+</code></pre><p>Engine 更像：</p>
+<pre tabindex="0"><code>Database Engine
+</code></pre><p>Reflection 提供：</p>
+<blockquote>
+<p>数据描述。</p>
+</blockquote>
+<p>Engine 消费：</p>
+<blockquote>
+<p>数据描述。</p>
+</blockquote>
+<hr>
+<h1 id="10-engine-启动时发生了什么">10. Engine 启动时发生了什么？</h1>
+<p>很多开发者认为：</p>
+<p>第一次调用：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>StaticClass()
+</span></span></code></pre></div><p>才创建：</p>
+<pre tabindex="0"><code>UClass
+</code></pre><p>实际上：</p>
+<p>并不是。</p>
+<p>Engine 启动时：</p>
+<pre tabindex="0"><code>Module Load
+
+↓
+
+Static Registration
+
+↓
+
+Construct UClass
+
+↓
+
+Construct CDO
+
+↓
+
+Register Into Object System
+</code></pre><p>因此：</p>
+<p>程序刚启动：</p>
+<p>整个 Runtime Type System 已经建立完成。</p>
+<p>例如：</p>
+<pre tabindex="0"><code>Actor
+
+Pawn
+
+Character
+
+Texture
+
+Material
+
+World
+</code></pre><p>这些类型都已经存在。</p>
+<p>所以：</p>
+<pre tabindex="0"><code>AActor::StaticClass()
+</code></pre><p>实际上只是：</p>
+<p>返回：</p>
+<p>已经注册好的：</p>
+<pre tabindex="0"><code>UClass
+</code></pre><hr>
+<h1 id="11-整个-object-system">11. 整个 Object System</h1>
+<p>最终：</p>
+<p>整个 Unreal Engine 可以抽象成下面这一张图。</p>
+<pre tabindex="0"><code>                    UObject Instance
+                           │
+                     GetClass()
+                           │
+                           ▼
+                       UClass
+                           │
+      ┌────────────────────┼────────────────────┐
+      ▼                    ▼                    ▼
+  FProperty           UFunction            Metadata
+      │                    │
+      └──────────────┬─────┘
+                     ▼
+               Reflection
+                     │
+     ┌───────────────┼────────────────────┐
+     ▼               ▼                    ▼
+ Garbage        Serialization        Blueprint
+ Collection
+                     │
+                     ▼
+              Unreal Engine
+</code></pre><p>整个 Engine 并不是围绕 UObject 运转。</p>
+<p>真正的中心其实是：</p>
+<pre tabindex="0"><code>Runtime Type System
+</code></pre><p>UObject 是：</p>
+<p>Runtime Object。</p>
+<p>UClass 是：</p>
+<p>Runtime Type。</p>
+<p>Reflection 是：</p>
+<p>Runtime Metadata。</p>
+<p>Engine 的所有子系统：</p>
+<p>共同消费这套 Runtime Metadata。</p>
+<hr>
+<h1 id="12-总结">12. 总结</h1>
+<p>如果只用一句话概括 Unreal Engine 的对象模型：</p>
+<blockquote>
+<p><strong>UObject 保存对象，UClass 保存类型，Reflection 保存结构，而整个 Engine 消费 Reflection。</strong></p>
+</blockquote>
+<p>理解这一点之后，再去阅读：</p>
+<ul>
+<li>Reflection</li>
+<li>Blueprint</li>
+<li>Garbage Collection</li>
+<li>Serialization</li>
+<li>Property System</li>
+<li>UHT</li>
+</ul>
+<p>会发现它们其实都是同一个系统的不同侧面。</p>
+<p>UObject 并不仅仅是一个基类。</p>
+<p>它是 Unreal Engine Runtime Object Model 的核心。</p>
+<p>而 Reflection，也不仅仅是一项功能。</p>
+<p>它是整个 Engine 能够实现编辑器、脚本、序列化、垃圾回收以及数据驱动架构的基础设施。</p>
+  
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>

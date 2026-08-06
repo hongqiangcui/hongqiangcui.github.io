@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Mesh Shader Pipeline vs Traditional Raster Pipeline —— 从UE5 Render架构角度理解 | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>Mesh Shader Pipeline vs Traditional Raster Pipeline —— 从UE5 Render架构角度理解</h1>
+
+  
+  
+  <time datetime="2026-08-06T00:00:00&#43;00:00">August 6, 2026</time>
+
+  <h1 id="mesh-shader-pipeline-vs-traditional-raster-pipeline">Mesh Shader Pipeline vs Traditional Raster Pipeline</h1>
+<p>很多文章介绍 Mesh Shader 时都会说：</p>
+<blockquote>
+<p>Mesh Shader 能减少 Draw Call，提高 GPU 性能。</p>
+</blockquote>
+<p>这句话并没有错，但也并不完整。</p>
+<p>如果站在 <strong>UE5 Render Tech Lead / Graphics Architect</strong> 的角度来看，<strong>Mesh Shader 并不是单纯替代 Vertex Shader，而是 GPU Geometry Pipeline 的一次重新架构。</strong></p>
+<p>真正发生变化的是：</p>
+<blockquote>
+<p><strong>Geometry Management（几何管理）的控制权，从 CPU 转移到了 GPU。</strong></p>
+</blockquote>
+<hr>
+<h1 id="一传统-raster-pipeline-的工作方式">一、传统 Raster Pipeline 的工作方式</h1>
+<p>传统 Pipeline（DX11 / DX12）如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>CPU
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>DrawIndexed()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>        ▼
+</span></span><span style="display:flex;"><span>Input Assembler (IA)
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>Vertex Shader
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>Hull Shader（可选）
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>Tessellation
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>Domain Shader
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>Geometry Shader（很少使用）
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>Primitive Assembly
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>Rasterizer
+</span></span><span style="display:flex;"><span>        │
+</span></span><span style="display:flex;"><span>Pixel Shader
+</span></span></code></pre></div><p>这里 CPU 的职责非常重：</p>
+<ul>
+<li>遍历 Scene</li>
+<li>判断哪些 Mesh 可见</li>
+<li>选择 LOD</li>
+<li>排序</li>
+<li>提交 Draw Call</li>
+</ul>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">for</span> (Mesh mesh : VisibleMeshes)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    DrawIndexed(mesh);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>GPU 只是负责执行。</p>
+<hr>
+<h1 id="二传统-pipeline-的几个核心问题">二、传统 Pipeline 的几个核心问题</h1>
+<h2 id="1-cpu-负责组织-geometry">1. CPU 负责组织 Geometry</h2>
+<p>CPU 必须知道：</p>
+<ul>
+<li>哪个 Mesh 需要绘制</li>
+<li>绘制顺序</li>
+<li>LOD</li>
+<li>Instance</li>
+</ul>
+<p>Scene 越大：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>更多 Mesh
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>更多 Draw
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>CPU 更忙
+</span></span></code></pre></div><p>这也是 UE4 大场景下 CPU Render Thread 的主要瓶颈之一。</p>
+<hr>
+<h2 id="2-vertex-shader-完全不知道-mesh-的整体结构">2. Vertex Shader 完全不知道 Mesh 的整体结构</h2>
+<p>Vertex Shader 的输入只有：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>一个 Vertex
+</span></span></code></pre></div><p>它不知道：</p>
+<ul>
+<li>Mesh</li>
+<li>Cluster</li>
+<li>Bounding Box</li>
+<li>LOD</li>
+<li>Visibility</li>
+</ul>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Vertex 12345
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Vertex Shader
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>计算 Position
+</span></span></code></pre></div><p>它无法判断：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (Mesh <span style="color:#960050;background-color:#1e0010">被遮挡</span>)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#960050;background-color:#1e0010">不画</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>因为 VS 根本不知道自己属于哪个 Mesh。</p>
+<hr>
+<h2 id="3-iainput-assembler完全固定">3. IA（Input Assembler）完全固定</h2>
+<p>传统硬件要求：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Vertex Buffer
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Index Buffer
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>IA
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Triangle
+</span></span></code></pre></div><p>Triangle 必须来自 Index Buffer。</p>
+<p>GPU 无法自己决定：</p>
+<ul>
+<li>哪些 Triangle 要画</li>
+<li>Triangle 如何组织</li>
+</ul>
+<hr>
+<h1 id="三mesh-shader-pipeline">三、Mesh Shader Pipeline</h1>
+<p>Mesh Shader Pipeline 变成：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>CPU
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>DispatchMesh
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Task Shader（Amplification Shader）
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Mesh Shader
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Rasterizer
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Pixel Shader
+</span></span></code></pre></div><p>最大的变化：</p>
+<blockquote>
+<p><strong>Input Assembler 消失了。</strong></p>
+</blockquote>
+<p>GPU 不再必须依赖固定的 Vertex Buffer + Index Buffer。</p>
+<p>Mesh Shader 可以直接生成 Triangle。</p>
+<hr>
+<h1 id="四mesh-shader-真正改变了什么">四、Mesh Shader 真正改变了什么？</h1>
+<h2 id="1-geometry-的组织权开始交给-gpu">1. Geometry 的组织权开始交给 GPU</h2>
+<p>传统：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>CPU
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Draw Mesh A
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Draw Mesh B
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Draw Mesh C
+</span></span></code></pre></div><p>Mesh Shader：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Task Shader
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>判断哪些 Mesh / Cluster 可见
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>生成 Mesh Shader 工作
+</span></span></code></pre></div><p>GPU 可以自己决定：</p>
+<ul>
+<li>是否需要执行 Mesh Shader</li>
+<li>执行多少个 Mesh Shader</li>
+</ul>
+<hr>
+<h2 id="2-gpu-可以直接完成-culling">2. GPU 可以直接完成 Culling</h2>
+<p>传统：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>CPU
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Frustum Cull
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Draw
+</span></span></code></pre></div><p>Mesh Shader：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Task Shader
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Bounding Box Test
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>LOD
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Occlusion
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Dispatch Mesh Shader
+</span></span></code></pre></div><p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>10000 Clusters
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Task Shader
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>1200 Visible
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>只执行 1200 个 Mesh Shader
+</span></span></code></pre></div><p>其余 8800 个 Cluster 根本不会进入 Rasterizer。</p>
+<hr>
+<h2 id="3-meshlet-成为新的调度单位">3. Meshlet 成为新的调度单位</h2>
+<p>传统：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Vertex
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Triangle
+</span></span></code></pre></div><p>Mesh Shader：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Meshlet
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Vertices
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>+
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Triangles
+</span></span></code></pre></div><p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Meshlet
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>64 Vertices
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>126 Triangles
+</span></span></code></pre></div><p>Mesh Shader 一次处理整个 Meshlet。</p>
+<hr>
+<h1 id="五为什么-mesh-shader-特别适合-nanite">五、为什么 Mesh Shader 特别适合 Nanite？</h1>
+<p>Nanite 本身就是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Mesh
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Cluster
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Cluster
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Cluster
+</span></span></code></pre></div><p>每个 Cluster：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>64~128 Vertices
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>约128 Triangles
+</span></span></code></pre></div><p>这与 Mesh Shader 的输出规模天然匹配。</p>
+<p>因此：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Nanite Cluster
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Mesh Shader
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>直接输出 Triangle
+</span></span></code></pre></div><p>完全绕过传统 IA。</p>
+<hr>
+<h1 id="六一个经常被误解的问题">六、一个经常被误解的问题</h1>
+<p>很多资料都会说：</p>
+<blockquote>
+<p>Mesh Shader 可以减少 CPU Draw Call。</p>
+</blockquote>
+<p>实际上需要区分两个层面。</p>
+<hr>
+<h2 id="第一层mesh-shader-api">第一层：Mesh Shader API</h2>
+<p>如果只是使用 Mesh Shader API：</p>
+<p>以前：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>DrawIndexed(meshA);
+</span></span><span style="display:flex;"><span>DrawIndexed(meshB);
+</span></span><span style="display:flex;"><span>DrawIndexed(meshC);
+</span></span></code></pre></div><p>现在：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>DispatchMesh(meshA);
+</span></span><span style="display:flex;"><span>DispatchMesh(meshB);
+</span></span><span style="display:flex;"><span>DispatchMesh(meshC);
+</span></span></code></pre></div><p>CPU 调用次数：</p>
+<p>没有变化。</p>
+<p>只是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>DrawIndexed
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>DispatchMesh
+</span></span></code></pre></div><p>API 本身不会自动减少 Dispatch。</p>
+<hr>
+<h2 id="第二层gpu-driven-rendering">第二层：GPU Driven Rendering</h2>
+<p>真正减少 CPU Draw Call 的，并不是 Mesh Shader。</p>
+<p>而是：</p>
+<ul>
+<li>GPU Scene</li>
+<li>GPU Culling</li>
+<li>ExecuteIndirect / DispatchMeshIndirect</li>
+</ul>
+<p>真正流程变成：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>CPU
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Dispatch Compute Cull
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU 生成 Visible List
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU 生成 Dispatch Arguments
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>ExecuteIndirect
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU 自动执行大量 Mesh Shader
+</span></span></code></pre></div><p>CPU 不再：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">for</span>(mesh)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    DispatchMesh(mesh);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>而是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>ExecuteIndirect();
+</span></span></code></pre></div><p>CPU 甚至不知道最终执行了多少个 Mesh Shader。</p>
+<hr>
+<h1 id="七nanite-更进一步">七、Nanite 更进一步</h1>
+<p>Nanite 连 Mesh 都不是调度单位。</p>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Building
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>5000 Clusters
+</span></span></code></pre></div><p>GPU：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Cull Cluster
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Visible Cluster
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>DispatchMeshIndirect
+</span></span></code></pre></div><p>CPU：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Dispatch Compute
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>ExecuteIndirect
+</span></span></code></pre></div><p>结束。</p>
+<p>CPU 不再管理：</p>
+<ul>
+<li>Cluster</li>
+<li>Draw</li>
+<li>Dispatch</li>
+</ul>
+<p>这些全部发生在 GPU。</p>
+<hr>
+<h1 id="八mesh-shader-与-gpu-driven-rendering-的关系">八、Mesh Shader 与 GPU Driven Rendering 的关系</h1>
+<p>很多文章把这两个概念混在一起。</p>
+<p>实际上它们属于不同层次。</p>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+					<th>作用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Mesh Shader</td>
+					<td>新的几何处理 Shader Stage</td>
+			</tr>
+			<tr>
+					<td>Task Shader</td>
+					<td>Mesh Shader 工作调度</td>
+			</tr>
+			<tr>
+					<td>GPU Scene</td>
+					<td>Scene 数据常驻 GPU</td>
+			</tr>
+			<tr>
+					<td>GPU Culling</td>
+					<td>GPU 决定哪些对象可见</td>
+			</tr>
+			<tr>
+					<td>ExecuteIndirect / DispatchMeshIndirect</td>
+					<td>GPU 自己发起绘制</td>
+			</tr>
+			<tr>
+					<td>Nanite</td>
+					<td>Cluster + GPU Culling + Indirect Dispatch + Mesh Shader（可选）</td>
+			</tr>
+	</tbody>
+</table>
+<p>Mesh Shader 并不会自动带来 GPU Driven Rendering。</p>
+<p>GPU Driven Rendering 也并不一定要求 Mesh Shader。</p>
+<p>两者结合，才形成 UE5 新一代几何渲染架构。</p>
+<hr>
+<h1 id="九传统-pipeline-vs-mesh-shader-pipeline">九、传统 Pipeline vs Mesh Shader Pipeline</h1>
+<table>
+	<thead>
+			<tr>
+					<th>传统 Raster Pipeline</th>
+					<th>Mesh Shader Pipeline</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>CPU 组织 Draw</td>
+					<td>GPU 可以组织 Geometry</td>
+			</tr>
+			<tr>
+					<td>IA 固定读取 VB/IB</td>
+					<td>IA 被移除</td>
+			</tr>
+			<tr>
+					<td>Vertex Shader 处理单个 Vertex</td>
+					<td>Mesh Shader 处理整个 Meshlet</td>
+			</tr>
+			<tr>
+					<td>Draw Call 数量大</td>
+					<td>更适合 GPU Indirect Dispatch</td>
+			</tr>
+			<tr>
+					<td>CPU 做 Culling</td>
+					<td>GPU 做 Culling</td>
+			</tr>
+			<tr>
+					<td>Primitive 来自 Index Buffer</td>
+					<td>Primitive 可编程生成</td>
+			</tr>
+			<tr>
+					<td>Vertex 不知道 Mesh</td>
+					<td>Mesh Shader 知道整个 Cluster</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="十总结">十、总结</h1>
+<p>很多人认为：</p>
+<blockquote>
+<p>Mesh Shader = Draw Call 更少。</p>
+</blockquote>
+<p>其实并不准确。</p>
+<p>真正准确的理解应该是：</p>
+<blockquote>
+<p><strong>Mesh Shader 提供了新的几何处理能力。</strong></p>
+</blockquote>
+<p>而真正让 CPU 不再逐个提交 Draw 的，是：</p>
+<ul>
+<li>GPU Scene</li>
+<li>GPU Culling</li>
+<li>ExecuteIndirect / DispatchMeshIndirect</li>
+</ul>
+<p>Mesh Shader 只是 GPU Driven Rendering 中负责 Geometry Processing 的最后一环。</p>
+<p>因此，从 UE5 Render 架构来看：</p>
+<blockquote>
+<p><strong>传统 Raster Pipeline 的核心思想是：CPU 负责组织 Geometry，GPU 负责执行 Rasterization。</strong></p>
+</blockquote>
+<p>而现代 Mesh Shader + GPU Driven Rendering 的核心思想则是：</p>
+<blockquote>
+<p><strong>GPU 不仅负责 Rasterization，也负责 Geometry 的组织、可见性判断、LOD 选择以及 Primitive 的生成。</strong></p>
+</blockquote>
+<p>这也是 Nanite、GPU Scene、Cluster Culling、Mesh Shader 等技术能够组合在一起，构成 UE5 新一代 Geometry Pipeline 的根本原因。</p>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/ue5/">UE5</a></li>
+        <li><a href="/tags/rendering/">Rendering</a></li>
+        <li><a href="/tags/mesh-shader/">Mesh Shader</a></li>
+        <li><a href="/tags/nanite/">Nanite</a></li>
+        <li><a href="/tags/gpu-driven-rendering/">GPU Driven Rendering</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>

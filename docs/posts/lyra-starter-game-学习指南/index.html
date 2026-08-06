@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Lyra Starter Game 学习指南 | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>Lyra Starter Game 学习指南</h1>
+
+  
+  
+  <time datetime="2026-08-06T00:00:00&#43;00:00">August 6, 2026</time>
+
+  <h1 id="lyra-starter-game-学习指南">Lyra Starter Game 学习指南</h1>
+<blockquote>
+<p>Lyra Starter Game 是 Epic 官方推出的 UE5 最佳实践项目，它不仅是一个示例游戏，更是一套现代 Unreal Engine 游戏架构参考实现。</p>
+</blockquote>
+<p>推荐学习顺序：</p>
+<blockquote>
+<p>Framework → Experience → GameFeature → GAS → Input → Character → Animation → Weapon → Inventory → UI → Multiplayer → Asset → Performance</p>
+</blockquote>
+<hr>
+<h1 id="学习总览">学习总览</h1>
+<table>
+	<thead>
+			<tr>
+					<th>模块</th>
+					<th>推荐指数</th>
+					<th>难度</th>
+					<th>是否核心</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Game Framework</td>
+					<td>⭐⭐⭐⭐⭐</td>
+					<td>★★☆☆☆</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Experience System</td>
+					<td>⭐⭐⭐⭐⭐</td>
+					<td>★★★★☆</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Game Feature Plugin</td>
+					<td>⭐⭐⭐⭐⭐</td>
+					<td>★★★★☆</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Gameplay Ability System</td>
+					<td>⭐⭐⭐⭐⭐</td>
+					<td>★★★★★</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Enhanced Input</td>
+					<td>⭐⭐⭐⭐⭐</td>
+					<td>★★☆☆☆</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Character</td>
+					<td>⭐⭐⭐⭐⭐</td>
+					<td>★★★☆☆</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Animation</td>
+					<td>⭐⭐⭐⭐⭐</td>
+					<td>★★★★☆</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Camera</td>
+					<td>⭐⭐⭐⭐⭐</td>
+					<td>★★★☆☆</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Weapon</td>
+					<td>⭐⭐⭐⭐⭐</td>
+					<td>★★★★☆</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Inventory</td>
+					<td>⭐⭐⭐⭐☆</td>
+					<td>★★★☆☆</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>CommonUI</td>
+					<td>⭐⭐⭐⭐⭐</td>
+					<td>★★★☆☆</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Multiplayer</td>
+					<td>⭐⭐⭐⭐⭐</td>
+					<td>★★★★★</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>AI</td>
+					<td>⭐⭐⭐⭐☆</td>
+					<td>★★★☆☆</td>
+					<td></td>
+			</tr>
+			<tr>
+					<td>Audio</td>
+					<td>⭐⭐⭐⭐☆</td>
+					<td>★★☆☆☆</td>
+					<td></td>
+			</tr>
+			<tr>
+					<td>Asset Manager</td>
+					<td>⭐⭐⭐⭐⭐</td>
+					<td>★★★☆☆</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Performance</td>
+					<td>⭐⭐⭐⭐⭐</td>
+					<td>★★★★☆</td>
+					<td>✅</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="1-game-framework">1. Game Framework</h1>
+<h2 id="学习目标">学习目标</h2>
+<p>理解 UE5 游戏生命周期。</p>
+<h2 id="主要类">主要类</h2>
+<table>
+	<thead>
+			<tr>
+					<th>类</th>
+					<th>作用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>LyraGameMode</td>
+					<td>游戏模式</td>
+			</tr>
+			<tr>
+					<td>LyraGameState</td>
+					<td>游戏状态同步</td>
+			</tr>
+			<tr>
+					<td>LyraPlayerController</td>
+					<td>输入管理</td>
+			</tr>
+			<tr>
+					<td>LyraPlayerState</td>
+					<td>GAS入口</td>
+			</tr>
+			<tr>
+					<td>LyraCharacter</td>
+					<td>玩家角色</td>
+			</tr>
+			<tr>
+					<td>LyraPawn</td>
+					<td>Pawn封装</td>
+			</tr>
+			<tr>
+					<td>LyraWorldSettings</td>
+					<td>世界配置</td>
+			</tr>
+	</tbody>
+</table>
+<h2 id="学习重点">学习重点</h2>
+<ul>
+<li>生命周期</li>
+<li>GameMode</li>
+<li>PlayerState</li>
+<li>Controller</li>
+<li>Pawn</li>
+<li>Character</li>
+<li>Replication</li>
+</ul>
+<hr>
+<h1 id="2-experience-systemlyra-核心">2. Experience System（Lyra 核心）</h1>
+<p>Experience 可以理解为：</p>
+<blockquote>
+<p>一套完整的游戏模式配置。</p>
+</blockquote>
+<p>例如：</p>
+<ul>
+<li>Shooter</li>
+<li>TopDown</li>
+<li>Elimination</li>
+<li>Capture The Flag</li>
+</ul>
+<p>Experience 包含：</p>
+<ul>
+<li>Pawn</li>
+<li>HUD</li>
+<li>UI</li>
+<li>Camera</li>
+<li>Ability</li>
+<li>Input</li>
+<li>Components</li>
+<li>Plugins</li>
+</ul>
+<h2 id="启动流程">启动流程</h2>
+<pre tabindex="0"><code>GameMode
+    │
+    ▼
+ExperienceManager
+    │
+    ▼
+Load Experience
+    │
+    ▼
+GameFeature
+    │
+    ▼
+Pawn
+    │
+    ▼
+Ability
+    │
+    ▼
+HUD
+</code></pre><p>学习重点：</p>
+<ul>
+<li>Experience Definition</li>
+<li>Experience Action Set</li>
+<li>Async Loading</li>
+<li>Gameplay Tags</li>
+</ul>
+<hr>
+<h1 id="3-game-feature-plugin">3. Game Feature Plugin</h1>
+<p>目录示例：</p>
+<pre tabindex="0"><code>Plugins/
+
+    ShooterCore/
+
+    TopDownArena/
+</code></pre><p>学习内容：</p>
+<table>
+	<thead>
+			<tr>
+					<th>功能</th>
+					<th>描述</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Runtime加载</td>
+					<td>热插拔插件</td>
+			</tr>
+			<tr>
+					<td>Ability注册</td>
+					<td>自动注入</td>
+			</tr>
+			<tr>
+					<td>UI扩展</td>
+					<td>自动添加Widget</td>
+			</tr>
+			<tr>
+					<td>Input扩展</td>
+					<td>自动绑定输入</td>
+			</tr>
+			<tr>
+					<td>Pawn扩展</td>
+					<td>自动增加组件</td>
+			</tr>
+	</tbody>
+</table>
+<p>重点：</p>
+<p>官方推荐的大型项目架构。</p>
+<hr>
+<h1 id="4-gameplay-ability-systemgas">4. Gameplay Ability System（GAS）</h1>
+<p>Lyra 对 GAS 的应用非常完整。</p>
+<p>学习内容：</p>
+<table>
+	<thead>
+			<tr>
+					<th>模块</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Ability</td>
+			</tr>
+			<tr>
+					<td>Gameplay Effect</td>
+			</tr>
+			<tr>
+					<td>Gameplay Cue</td>
+			</tr>
+			<tr>
+					<td>Attribute</td>
+			</tr>
+			<tr>
+					<td>Ability Set</td>
+			</tr>
+			<tr>
+					<td>Cooldown</td>
+			</tr>
+			<tr>
+					<td>Cost</td>
+			</tr>
+			<tr>
+					<td>Gameplay Tags</td>
+			</tr>
+			<tr>
+					<td>Prediction</td>
+			</tr>
+			<tr>
+					<td>Replication</td>
+			</tr>
+	</tbody>
+</table>
+<p>流程：</p>
+<pre tabindex="0"><code>Input
+
+↓
+
+Ability
+
+↓
+
+GameplayEffect
+
+↓
+
+Attribute
+
+↓
+
+GameplayCue
+
+↓
+
+Replication
+</code></pre><p>重点类：</p>
+<ul>
+<li>LyraAbilitySystemComponent</li>
+<li>LyraGameplayAbility</li>
+<li>LyraAttributeSet</li>
+<li>LyraAbilitySet</li>
+</ul>
+<hr>
+<h1 id="5-enhanced-input">5. Enhanced Input</h1>
+<p>学习内容：</p>
+<ul>
+<li>Input Action</li>
+<li>Input Mapping Context</li>
+<li>Input Config</li>
+<li>Gameplay Tag</li>
+<li>Ability绑定</li>
+</ul>
+<p>Lyra 最大特点：</p>
+<pre tabindex="0"><code>按键
+
+↓
+
+GameplayTag
+
+↓
+
+Ability
+</code></pre><p>而不是：</p>
+<pre tabindex="0"><code>按键
+
+↓
+
+函数
+</code></pre><p>实现输入与逻辑解耦。</p>
+<hr>
+<h1 id="6-character">6. Character</h1>
+<p>学习内容：</p>
+<ul>
+<li>Character Movement</li>
+<li>Pawn Extension</li>
+<li>Team System</li>
+<li>Health</li>
+<li>Death</li>
+<li>Respawn</li>
+</ul>
+<p>重点：</p>
+<p>组件化角色。</p>
+<hr>
+<h1 id="7-animation">7. Animation</h1>
+<p>学习内容：</p>
+<ul>
+<li>Anim Blueprint</li>
+<li>Linked Anim Graph</li>
+<li>Layer</li>
+<li>Motion Warping</li>
+<li>Distance Matching</li>
+<li>Orientation Warping</li>
+<li>Root Motion</li>
+<li>Aim Offset</li>
+<li>Foot IK</li>
+</ul>
+<p>重点：</p>
+<p>体验 UE5 最新动画系统。</p>
+<hr>
+<h1 id="8-camera">8. Camera</h1>
+<p>学习内容：</p>
+<ul>
+<li>Camera Mode</li>
+<li>Camera Stack</li>
+<li>ADS</li>
+<li>Third Person</li>
+<li>First Person</li>
+</ul>
+<p>流程：</p>
+<pre tabindex="0"><code>Player
+
+↓
+
+CameraMode
+
+↓
+
+CameraStack
+
+↓
+
+Camera
+</code></pre><hr>
+<h1 id="9-weapon">9. Weapon</h1>
+<p>学习内容：</p>
+<table>
+	<thead>
+			<tr>
+					<th>模块</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Weapon Definition</td>
+			</tr>
+			<tr>
+					<td>Weapon Instance</td>
+			</tr>
+			<tr>
+					<td>Fire Ability</td>
+			</tr>
+			<tr>
+					<td>Projectile</td>
+			</tr>
+			<tr>
+					<td>HitScan</td>
+			</tr>
+			<tr>
+					<td>ADS</td>
+			</tr>
+			<tr>
+					<td>Ammo</td>
+			</tr>
+			<tr>
+					<td>Reload</td>
+			</tr>
+			<tr>
+					<td>Spread</td>
+			</tr>
+	</tbody>
+</table>
+<p>流程：</p>
+<pre tabindex="0"><code>WeaponDefinition
+
+↓
+
+WeaponInstance
+
+↓
+
+Ability
+
+↓
+
+Fire
+
+↓
+
+Damage
+</code></pre><hr>
+<h1 id="10-inventory">10. Inventory</h1>
+<p>学习内容：</p>
+<ul>
+<li>Inventory Item</li>
+<li>Equipment</li>
+<li>Pickup</li>
+<li>QuickBar</li>
+<li>Inventory Fragment</li>
+</ul>
+<p>特点：</p>
+<p>全部 DataAsset 驱动。</p>
+<hr>
+<h1 id="11-uicommonui">11. UI（CommonUI）</h1>
+<p>Lyra 全部采用 CommonUI。</p>
+<p>学习内容：</p>
+<ul>
+<li>HUD</li>
+<li>Activatable Widget</li>
+<li>Common Button</li>
+<li>Layer</li>
+<li>UI Policy</li>
+<li>Async UI</li>
+</ul>
+<p>流程：</p>
+<pre tabindex="0"><code>Player
+
+↓
+
+HUD
+
+↓
+
+Layer
+
+↓
+
+Widget
+</code></pre><hr>
+<h1 id="12-multiplayer">12. Multiplayer</h1>
+<p>Lyra 从设计之初即支持多人联机。</p>
+<p>学习内容：</p>
+<ul>
+<li>Replication</li>
+<li>RPC</li>
+<li>Prediction</li>
+<li>Authority</li>
+<li>GAS同步</li>
+<li>Weapon同步</li>
+<li>Character同步</li>
+</ul>
+<p>重点：</p>
+<p>Epic 官方多人最佳实践。</p>
+<hr>
+<h1 id="13-ai">13. AI</h1>
+<p>学习内容：</p>
+<ul>
+<li>AI Controller</li>
+<li>Behavior Tree</li>
+<li>Blackboard</li>
+<li>EQS</li>
+<li>Perception</li>
+<li>Team</li>
+</ul>
+<hr>
+<h1 id="14-audio">14. Audio</h1>
+<p>学习内容：</p>
+<ul>
+<li>MetaSound</li>
+<li>Gameplay Cue</li>
+<li>Audio Component</li>
+<li>Spatial Audio</li>
+</ul>
+<hr>
+<h1 id="15-asset-manager">15. Asset Manager</h1>
+<p>学习内容：</p>
+<ul>
+<li>Primary Asset</li>
+<li>Asset Bundle</li>
+<li>Soft Object</li>
+<li>Async Loading</li>
+<li>StreamableManager</li>
+</ul>
+<p>Lyra 大量采用：</p>
+<ul>
+<li>SoftObjectPtr</li>
+<li>PrimaryAsset</li>
+<li>AssetManager</li>
+</ul>
+<p>实现资源按需加载。</p>
+<hr>
+<h1 id="16-savegame">16. SaveGame</h1>
+<p>学习内容：</p>
+<ul>
+<li>SaveGame</li>
+<li>User Settings</li>
+<li>Local Settings</li>
+</ul>
+<p>Lyra 保存内容较少，主要作为参考实现。</p>
+<hr>
+<h1 id="17-performance">17. Performance</h1>
+<p>学习内容：</p>
+<ul>
+<li>Async Loading</li>
+<li>Soft Reference</li>
+<li>Object Pool</li>
+<li>DataAsset</li>
+<li>Component化</li>
+<li>GameFeature 按需加载</li>
+</ul>
+<p>重点：</p>
+<p>大型项目资源管理。</p>
+<hr>
+<h1 id="18-设计模式">18. 设计模式</h1>
+<p>Lyra 大量采用现代软件设计思想。</p>
+<table>
+	<thead>
+			<tr>
+					<th>模式</th>
+					<th>应用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>数据驱动</td>
+					<td>Experience、Weapon、Inventory</td>
+			</tr>
+			<tr>
+					<td>Component</td>
+					<td>Character、Weapon</td>
+			</tr>
+			<tr>
+					<td>Plugin</td>
+					<td>Game Feature</td>
+			</tr>
+			<tr>
+					<td>Strategy</td>
+					<td>Camera</td>
+			</tr>
+			<tr>
+					<td>Factory</td>
+					<td>Pawn创建</td>
+			</tr>
+			<tr>
+					<td>Observer</td>
+					<td>Gameplay Message</td>
+			</tr>
+			<tr>
+					<td>Command</td>
+					<td>Enhanced Input</td>
+			</tr>
+			<tr>
+					<td>State</td>
+					<td>Character状态</td>
+			</tr>
+			<tr>
+					<td>Event Bus</td>
+					<td>Gameplay Message System</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="推荐学习路线">推荐学习路线</h1>
+<table>
+	<thead>
+			<tr>
+					<th>周数</th>
+					<th>学习内容</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>第1周</td>
+					<td>Framework</td>
+			</tr>
+			<tr>
+					<td>第2周</td>
+					<td>Experience</td>
+			</tr>
+			<tr>
+					<td>第3周</td>
+					<td>Game Feature Plugin</td>
+			</tr>
+			<tr>
+					<td>第4周</td>
+					<td>Enhanced Input</td>
+			</tr>
+			<tr>
+					<td>第5周</td>
+					<td>Gameplay Ability System</td>
+			</tr>
+			<tr>
+					<td>第6周</td>
+					<td>Character + Animation</td>
+			</tr>
+			<tr>
+					<td>第7周</td>
+					<td>Weapon + Inventory</td>
+			</tr>
+			<tr>
+					<td>第8周</td>
+					<td>CommonUI</td>
+			</tr>
+			<tr>
+					<td>第9周</td>
+					<td>Multiplayer</td>
+			</tr>
+			<tr>
+					<td>第10周</td>
+					<td>Asset + Performance + AI</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="总结">总结</h1>
+<p>Lyra Starter Game 最值得学习的五大核心：</p>
+<ol>
+<li>Experience System</li>
+<li>Game Feature Plugin</li>
+<li>Gameplay Ability System（GAS）</li>
+<li>Enhanced Input</li>
+<li>CommonUI</li>
+</ol>
+<p>掌握以上内容后，再深入研究 Weapon、Inventory、Animation、Multiplayer 与 AssetManager，将能够建立现代 UE5 大型项目的整体架构思维，为开发可扩展、可维护的游戏奠定坚实基础。</p>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/ue5/">UE5</a></li>
+        <li><a href="/tags/lyra/">Lyra</a></li>
+        <li><a href="/tags/gameplay-ability-system/">Gameplay Ability System</a></li>
+        <li><a href="/tags/game-framework/">Game Framework</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>

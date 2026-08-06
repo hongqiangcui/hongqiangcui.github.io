@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Gameplay Ability System on My New Hugo Project</title>
+		<link>http://localhost:1313/tags/gameplay-ability-system/</link>
+		<description>Recent content in Gameplay Ability System on My New Hugo Project</description>
+		<generator>Hugo</generator>
+		<language>en-us</language>
+		
+		
+		
+		
+			<lastBuildDate>Thu, 06 Aug 2026 00:00:00 +0000</lastBuildDate>
+		
+			<atom:link href="http://localhost:1313/tags/gameplay-ability-system/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Lyra Starter Game 学习指南</title>
+				<link>http://localhost:1313/posts/lyra-starter-game-%E5%AD%A6%E4%B9%A0%E6%8C%87%E5%8D%97/</link>
+				<pubDate>Thu, 06 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/lyra-starter-game-%E5%AD%A6%E4%B9%A0%E6%8C%87%E5%8D%97/</guid>
+				<description>Epic 官方 Lyra Starter Game 学习路线与知识点整理。</description>
+			</item>
+	</channel>
+</rss>

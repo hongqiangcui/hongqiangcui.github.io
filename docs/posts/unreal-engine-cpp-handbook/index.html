@@ -1,0 +1,2071 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Unreal Engine C&#43;&#43; Handbook | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>Unreal Engine C&#43;&#43; Handbook</h1>
+
+  
+  
+  <time datetime="0001-01-01T00:00:00&#43;00:00">January 1, 1</time>
+
+  <h1 id="unreal-engine-c-handbook">Unreal Engine C++ Handbook</h1>
+<blockquote>
+<p>本文是一份 Unreal Engine C++ 开发知识手册，结合社区最佳实践与 Unreal Engine 官方架构，对 UE C++ 的核心概念进行系统整理。</p>
+</blockquote>
+<hr>
+<h1 id="为什么学习-ue-c">为什么学习 UE C++</h1>
+<p>很多刚接触 UE 的开发者都会问：</p>
+<blockquote>
+<p><strong>既然 Blueprint 可以完成大部分功能，为什么还要学习 C++？</strong></p>
+</blockquote>
+<p>实际上，两者并不是竞争关系，而是互补关系。</p>
+<p>推荐采用 <strong>Hybrid Development（混合开发）</strong>：</p>
+<pre tabindex="0"><code>            Gameplay
+
+       Blueprint Layer
+        UI
+        Animation
+        FX
+        Audio
+        Designers
+
+-----------------------------
+
+        C++ Layer
+
+ Game Framework
+ Ability System
+ SaveGame
+ AI
+ Networking
+ Inventory
+ Core Gameplay
+
+-----------------------------
+
+ Unreal Engine Runtime
+</code></pre><h2 id="blueprint-更适合">Blueprint 更适合</h2>
+<ul>
+<li>UI</li>
+<li>Widget</li>
+<li>Animation Blueprint</li>
+<li>Niagara</li>
+<li>特效</li>
+<li>快速验证玩法</li>
+<li>Level Script</li>
+</ul>
+<p>优点：</p>
+<ul>
+<li>开发速度快</li>
+<li>易于调试</li>
+<li>美术、策划均可参与</li>
+</ul>
+<hr>
+<h2 id="c-更适合">C++ 更适合</h2>
+<p>适用于需要：</p>
+<ul>
+<li>高性能</li>
+<li>可维护性</li>
+<li>大规模项目</li>
+<li>网络同步</li>
+<li>模块化设计</li>
+</ul>
+<p>例如：</p>
+<ul>
+<li>Inventory</li>
+<li>GAS</li>
+<li>AI</li>
+<li>Save System</li>
+<li>Save Serialization</li>
+<li>Online System</li>
+<li>Gameplay Framework</li>
+</ul>
+<hr>
+<h2 id="推荐架构">推荐架构</h2>
+<pre tabindex="0"><code>Designer
+
+      │
+
+Blueprint
+
+      │
+
+Extend
+
+      ▼
+
+Native C++ Classes
+
+      │
+
+Gameplay Framework
+
+      │
+
+Engine
+</code></pre><p>Blueprint 应尽量负责：</p>
+<ul>
+<li>调整参数</li>
+<li>组合功能</li>
+<li>美术表现</li>
+</ul>
+<p>核心逻辑尽量放在 C++。</p>
+<hr>
+<h1 id="ue-c-项目结构">UE C++ 项目结构</h1>
+<p>典型项目：</p>
+<pre tabindex="0"><code>Source/
+
+    MyGame/
+
+        Public/
+
+        Private/
+
+        MyGame.Build.cs
+
+        MyGame.cpp
+
+        MyGame.h
+</code></pre><p>其中：</p>
+<h2 id="public">Public</h2>
+<p>对外暴露 Header。</p>
+<p>例如：</p>
+<pre tabindex="0"><code>Public/
+
+InventoryComponent.h
+
+Weapon.h
+
+HealthComponent.h
+</code></pre><hr>
+<h2 id="private">Private</h2>
+<p>实现文件：</p>
+<pre tabindex="0"><code>Private/
+
+InventoryComponent.cpp
+
+Weapon.cpp
+
+HealthComponent.cpp
+</code></pre><hr>
+<h1 id="header-与-cpp">Header 与 CPP</h1>
+<p>推荐：</p>
+<pre tabindex="0"><code>Weapon.h
+
+Weapon.cpp
+</code></pre><p>不要把实现写进 Header。</p>
+<p>例如：</p>
+<p>错误：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">Add</span>(<span style="color:#66d9ef">int</span> A,<span style="color:#66d9ef">int</span> B)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> A<span style="color:#f92672">+</span>B;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>应该：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#75715e">// Header
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">Add</span>(<span style="color:#66d9ef">int</span> A,<span style="color:#66d9ef">int</span> B);
+</span></span></code></pre></div><p>CPP：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">int</span> UMath<span style="color:#f92672">::</span>Add(<span style="color:#66d9ef">int</span> A,<span style="color:#66d9ef">int</span> B)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> A<span style="color:#f92672">+</span>B;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>这样可以减少编译依赖。</p>
+<hr>
+<h1 id="include-的原则">Include 的原则</h1>
+<p>不要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;Everything.h&#34;</span><span style="color:#75715e">
+</span></span></span></code></pre></div><p>推荐：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;CoreMinimal.h&#34;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;GameFramework/Actor.h&#34;</span><span style="color:#75715e">
+</span></span></span></code></pre></div><p>保持 Include 最少。</p>
+<hr>
+<h1 id="forward-declaration">Forward Declaration</h1>
+<p>Forward Declaration（前向声明）是 UE 项目中最重要的技巧之一。</p>
+<p>例如：</p>
+<p>错误：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;InventoryComponent.h&#34;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">APlayerCharacter</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    InventoryComponent<span style="color:#f92672">*</span> Inventory;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>实际上只需要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">UInventoryComponent</span>;
+</span></span></code></pre></div><p>即可：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">UInventoryComponent</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">APlayerCharacter</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    UInventoryComponent<span style="color:#f92672">*</span> Inventory;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>真正需要 Include 的地方：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;InventoryComponent.h&#34;</span><span style="color:#75715e">
+</span></span></span></code></pre></div><p>放在：</p>
+<pre tabindex="0"><code>PlayerCharacter.cpp
+</code></pre><p>这样可以：</p>
+<ul>
+<li>降低编译时间</li>
+<li>减少依赖</li>
+<li>避免循环引用</li>
+</ul>
+<hr>
+<h1 id="pointer">Pointer</h1>
+<p>UE 本质仍然是 C++。</p>
+<p>因此：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>AActor<span style="color:#f92672">*</span> Actor;
+</span></span></code></pre></div><p>表示：</p>
+<pre tabindex="0"><code>Actor
+   │
+   ▼
+Heap Object
+</code></pre><p>Actor 本身存在堆上。</p>
+<p>变量保存的是地址。</p>
+<hr>
+<p>访问：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>Actor<span style="color:#f92672">-&gt;</span>Destroy();
+</span></span></code></pre></div><p>而不是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>Actor.Destroy();
+</span></span></code></pre></div><hr>
+<h1 id="reference">Reference</h1>
+<p>引用：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>FVector<span style="color:#f92672">&amp;</span> Location
+</span></span></code></pre></div><p>特点：</p>
+<ul>
+<li>必须初始化</li>
+<li>不允许为空</li>
+<li>更安全</li>
+</ul>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">Move</span>(FVector<span style="color:#f92672">&amp;</span> Position)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    Position.X <span style="color:#f92672">+=</span> <span style="color:#ae81ff">100</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>相比：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">void</span> Move(FVector<span style="color:#f92672">*</span> Position)
+</span></span></code></pre></div><p>无需：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">if</span>(Position)
+</span></span></code></pre></div><hr>
+<h1 id="const">Const</h1>
+<p>推荐：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> FString<span style="color:#f92672">&amp;</span> Name
+</span></span></code></pre></div><p>而不是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>FString Name
+</span></span></code></pre></div><p>避免：</p>
+<ul>
+<li>大对象复制</li>
+<li>临时对象</li>
+</ul>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">SetName</span>(<span style="color:#66d9ef">const</span> FString<span style="color:#f92672">&amp;</span> NewName);
+</span></span></code></pre></div><hr>
+<p>返回值：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> UTexture2D<span style="color:#f92672">*</span> <span style="color:#a6e22e">GetIcon</span>() <span style="color:#66d9ef">const</span>;
+</span></span></code></pre></div><p>表示：</p>
+<ul>
+<li>不修改对象</li>
+<li>返回对象也不可修改</li>
+</ul>
+<hr>
+<h1 id="nullptr">nullptr</h1>
+<p>现代 C++：</p>
+<p>推荐：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>Actor <span style="color:#f92672">=</span> <span style="color:#66d9ef">nullptr</span>;
+</span></span></code></pre></div><p>不要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>Actor <span style="color:#f92672">=</span> NULL;
+</span></span></code></pre></div><p>也不要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>Actor <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span></code></pre></div><hr>
+<h1 id="auto">Auto</h1>
+<p>适用于：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">auto</span> Player <span style="color:#f92672">=</span> GetWorld()<span style="color:#f92672">-&gt;</span>GetFirstPlayerController();
+</span></span></code></pre></div><p>但不要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">auto</span> X <span style="color:#f92672">=</span> <span style="color:#ae81ff">3</span>;
+</span></span></code></pre></div><p>导致类型不明确。</p>
+<hr>
+<h1 id="enum-class">Enum Class</h1>
+<p>推荐：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">enum</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">EWeaponType</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    Rifle,
+</span></span><span style="display:flex;"><span>    Pistol,
+</span></span><span style="display:flex;"><span>    Rocket
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>避免：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">enum</span> <span style="color:#a6e22e">WeaponType</span>
+</span></span></code></pre></div><p>使用：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">if</span>(Type <span style="color:#f92672">==</span> EWeaponType<span style="color:#f92672">::</span>Rifle)
+</span></span></code></pre></div><p>更加安全。</p>
+<hr>
+<h1 id="move-semantics">Move Semantics</h1>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>TArray<span style="color:#f92672">&lt;</span>FString<span style="color:#f92672">&gt;</span> Names;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Names.Add(MoveTemp(Name));
+</span></span></code></pre></div><p>而不是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>Names.Add(Name);
+</span></span></code></pre></div><p>减少复制。</p>
+<p>UE 中大量使用：</p>
+<pre tabindex="0"><code>MoveTemp()
+</code></pre><hr>
+<h1 id="ue-containers">UE Containers</h1>
+<p>常见容器：</p>
+<table>
+	<thead>
+			<tr>
+					<th>类型</th>
+					<th>类似 STL</th>
+					<th>用途</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>TArray</td>
+					<td>vector</td>
+					<td>动态数组</td>
+			</tr>
+			<tr>
+					<td>TMap</td>
+					<td>unordered_map</td>
+					<td>哈希</td>
+			</tr>
+			<tr>
+					<td>TSet</td>
+					<td>unordered_set</td>
+					<td>集合</td>
+			</tr>
+			<tr>
+					<td>FString</td>
+					<td>string</td>
+					<td>字符串</td>
+			</tr>
+			<tr>
+					<td>FName</td>
+					<td>interned string</td>
+					<td>高性能名称</td>
+			</tr>
+			<tr>
+					<td>FText</td>
+					<td>localized text</td>
+					<td>本地化文本</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h2 id="fstring">FString</h2>
+<p>普通字符串：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>FString PlayerName;
+</span></span></code></pre></div><p>支持：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>Append()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Printf()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Replace()
+</span></span></code></pre></div><hr>
+<h2 id="fname">FName</h2>
+<p>适用于：</p>
+<ul>
+<li>Socket Name</li>
+<li>Bone Name</li>
+<li>Gameplay Tag</li>
+<li>Asset Name</li>
+</ul>
+<p>特点：</p>
+<p>比较速度极快。</p>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>FName(<span style="color:#e6db74">&#34;Head&#34;</span>)
+</span></span></code></pre></div><p>比：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>FString(<span style="color:#e6db74">&#34;Head&#34;</span>)
+</span></span></code></pre></div><p>更加适合作为 Key。</p>
+<hr>
+<h2 id="ftext">FText</h2>
+<p>用于：</p>
+<ul>
+<li>UI</li>
+<li>Localization</li>
+</ul>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>FText<span style="color:#f92672">::</span>FromString(<span style="color:#e6db74">&#34;Hello&#34;</span>)
+</span></span></code></pre></div><p>而不要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>FString
+</span></span></code></pre></div><p>用于 UI。</p>
+<hr>
+<h1 id="reflection-system">Reflection System</h1>
+<p>Reflection 是 Unreal 最重要的系统之一。</p>
+<p>它支持：</p>
+<ul>
+<li>GC</li>
+<li>Blueprint</li>
+<li>Serialization</li>
+<li>Network</li>
+<li>Editor</li>
+<li>Details Panel</li>
+</ul>
+<pre tabindex="0"><code>           UHT
+
+            │
+
+Reflection Metadata
+
+            │
+
+------------------------
+
+Blueprint
+
+GC
+
+Replication
+
+Editor
+
+Serialization
+</code></pre><hr>
+<h1 id="uobject">UObject</h1>
+<p>几乎所有可反射对象都继承：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UObject
+</span></span></code></pre></div><p>例如：</p>
+<pre tabindex="0"><code>UActorComponent
+
+UGameInstance
+
+UUserWidget
+
+USaveGame
+
+UDataAsset
+</code></pre><hr>
+<h2 id="uobject-特点">UObject 特点</h2>
+<p>拥有：</p>
+<ul>
+<li>Reflection</li>
+<li>GC</li>
+<li>RTTI</li>
+<li>Serialization</li>
+</ul>
+<p>没有：</p>
+<ul>
+<li>Transform</li>
+<li>Tick</li>
+<li>World</li>
+</ul>
+<p>因此：</p>
+<p>不是所有 UObject 都能放进场景。</p>
+<hr>
+<h1 id="aactor">AActor</h1>
+<p>Actor 继承：</p>
+<pre tabindex="0"><code>UObject
+
+    │
+
+AActor
+</code></pre><p>增加：</p>
+<ul>
+<li>Transform</li>
+<li>Tick</li>
+<li>Networking</li>
+<li>Components</li>
+</ul>
+<p>因此：</p>
+<pre tabindex="0"><code>Actor
+</code></pre><p>才能存在于世界。</p>
+<hr>
+<h1 id="uactorcomponent">UActorComponent</h1>
+<p>Component：</p>
+<pre tabindex="0"><code>UObject
+
+      │
+
+UActorComponent
+</code></pre><p>负责：</p>
+<ul>
+<li>可复用逻辑</li>
+<li>组合设计</li>
+</ul>
+<p>例如：</p>
+<pre tabindex="0"><code>HealthComponent
+
+InventoryComponent
+
+WeaponComponent
+
+InteractionComponent
+</code></pre><p>推荐：</p>
+<blockquote>
+<p>能写 Component，就不要全部写进 Character。</p>
+</blockquote>
+<hr>
+<h1 id="uclass">UCLASS()</h1>
+<p>任何 UObject 派生类：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UCLASS()
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MYGAME_API</span> UInventoryComponent
+</span></span><span style="display:flex;"><span>    : <span style="color:#66d9ef">public</span> UActorComponent
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    GENERATED_BODY()
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>宏会告诉 UHT：</p>
+<blockquote>
+<p>请生成 Reflection 信息。</p>
+</blockquote>
+<hr>
+<h1 id="generated_body">GENERATED_BODY()</h1>
+<p>必须存在：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>GENERATED_BODY()
+</span></span></code></pre></div><p>否则：</p>
+<ul>
+<li>Reflection 不工作</li>
+<li>Blueprint 不工作</li>
+<li>GC 不工作</li>
+</ul>
+<hr>
+<h1 id="uproperty">UPROPERTY()</h1>
+<p>示例：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UPROPERTY(EditAnywhere, BlueprintReadWrite)
+</span></span><span style="display:flex;"><span>int32 Health;
+</span></span></code></pre></div><p>作用：</p>
+<ul>
+<li>Editor</li>
+<li>Save</li>
+<li>GC</li>
+<li>Replication</li>
+<li>Blueprint</li>
+</ul>
+<hr>
+<p>常见 Specifier：</p>
+<table>
+	<thead>
+			<tr>
+					<th>Specifier</th>
+					<th>含义</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>EditAnywhere</td>
+					<td>编辑器可修改</td>
+			</tr>
+			<tr>
+					<td>EditDefaultsOnly</td>
+					<td>默认值可修改</td>
+			</tr>
+			<tr>
+					<td>VisibleAnywhere</td>
+					<td>只读</td>
+			</tr>
+			<tr>
+					<td>BlueprintReadWrite</td>
+					<td>蓝图读写</td>
+			</tr>
+			<tr>
+					<td>BlueprintReadOnly</td>
+					<td>蓝图只读</td>
+			</tr>
+			<tr>
+					<td>Transient</td>
+					<td>不保存</td>
+			</tr>
+			<tr>
+					<td>Replicated</td>
+					<td>网络同步</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="ufunction">UFUNCTION()</h1>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UFUNCTION(BlueprintCallable)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span> Fire();
+</span></span></code></pre></div><p>Blueprint 即可调用。</p>
+<p>常见 Specifier：</p>
+<ul>
+<li>BlueprintCallable</li>
+<li>BlueprintPure</li>
+<li>Server</li>
+<li>Client</li>
+<li>NetMulticast</li>
+<li>BlueprintImplementableEvent</li>
+<li>BlueprintNativeEvent</li>
+</ul>
+<hr>
+<h1 id="ustruct">USTRUCT()</h1>
+<p>用于：</p>
+<ul>
+<li>数据结构</li>
+<li>SaveGame</li>
+<li>Config</li>
+<li>DataTable</li>
+</ul>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>USTRUCT(BlueprintType)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">FInventoryItem</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    GENERATED_BODY()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    UPROPERTY(EditAnywhere)
+</span></span><span style="display:flex;"><span>    FName ItemID;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    UPROPERTY(EditAnywhere)
+</span></span><span style="display:flex;"><span>    int32 Count;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><hr>
+<h1 id="uenum">UENUM()</h1>
+<p>推荐：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UENUM(BlueprintType)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">enum</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">EItemType</span> <span style="color:#f92672">:</span> uint8
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    Weapon,
+</span></span><span style="display:flex;"><span>    Consumable,
+</span></span><span style="display:flex;"><span>    Quest
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>Blueprint 自动支持下拉框。</p>
+<hr>
+<h1 id="本章小结">本章小结</h1>
+<p>本部分介绍了：</p>
+<ul>
+<li>UE C++ 开发理念</li>
+<li>Hybrid Architecture</li>
+<li>项目目录结构</li>
+<li>Include 与 Forward Declaration</li>
+<li>Pointer / Reference / Const</li>
+<li>Unreal 容器</li>
+<li>Reflection System</li>
+<li>UObject、Actor、Component</li>
+<li>UCLASS / UPROPERTY / UFUNCTION / USTRUCT / UENUM</li>
+</ul>
+<p>下一部分将进入：</p>
+<ul>
+<li>UObject 生命周期</li>
+<li>Garbage Collection</li>
+<li>TObjectPtr</li>
+<li>TWeakObjectPtr</li>
+<li>TSoftObjectPtr</li>
+<li>Gameplay Framework（GameMode、GameState、PlayerController、Pawn、Character、Subsystem）</li>
+</ul>
+<h1 id="uobject-生命周期与内存管理">UObject 生命周期与内存管理</h1>
+<h2 id="uobject-的创建方式">UObject 的创建方式</h2>
+<p>Unreal Engine 中，大多数 UObject 都不能直接通过 <code>new</code> 创建，而应使用引擎提供的工厂函数，以便对象能够参与反射、垃圾回收和序列化。</p>
+<h3 id="newobject">NewObject</h3>
+<p>适用于普通 UObject：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UMyObject<span style="color:#f92672">*</span> Obj <span style="color:#f92672">=</span> NewObject<span style="color:#f92672">&lt;</span>UMyObject<span style="color:#f92672">&gt;</span>(Outer);
+</span></span></code></pre></div><p>常见用途：</p>
+<ul>
+<li>数据对象</li>
+<li>Manager</li>
+<li>Runtime Helper</li>
+<li>非场景对象</li>
+</ul>
+<hr>
+<h3 id="createdefaultsubobject">CreateDefaultSubobject</h3>
+<p>仅能在构造函数中使用，用于创建组件。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>AMyCharacter<span style="color:#f92672">::</span>AMyCharacter()
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    Camera <span style="color:#f92672">=</span> CreateDefaultSubobject<span style="color:#f92672">&lt;</span>UCameraComponent<span style="color:#f92672">&gt;</span>(TEXT(<span style="color:#e6db74">&#34;Camera&#34;</span>));
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>特点：</p>
+<ul>
+<li>自动注册</li>
+<li>自动参与 GC</li>
+<li>可以在 Blueprint 中继承修改</li>
+</ul>
+<hr>
+<h3 id="spawnactor">SpawnActor</h3>
+<p>Actor 必须通过 World 创建。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>AEnemy<span style="color:#f92672">*</span> Enemy <span style="color:#f92672">=</span> GetWorld()<span style="color:#f92672">-&gt;</span>SpawnActor<span style="color:#f92672">&lt;</span>AEnemy<span style="color:#f92672">&gt;</span>(
+</span></span><span style="display:flex;"><span>    EnemyClass,
+</span></span><span style="display:flex;"><span>    SpawnTransform
+</span></span><span style="display:flex;"><span>);
+</span></span></code></pre></div><p>不要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">new</span> <span style="color:#a6e22e">AEnemy</span>();
+</span></span></code></pre></div><hr>
+<h2 id="outer">Outer</h2>
+<p>每个 UObject 都有一个 Outer。</p>
+<p>例如：</p>
+<pre tabindex="0"><code>GameInstance
+    └── InventoryManager
+            └── InventoryItem
+</code></pre><p>Outer 表示对象的拥有关系：</p>
+<ul>
+<li>生命周期管理</li>
+<li>路径组成</li>
+<li>GC 引用链</li>
+</ul>
+<p>需要注意的是，Outer <strong>不等于所有权</strong>，真正决定对象是否被回收的是 GC 的引用可达性。</p>
+<hr>
+<h2 id="garbage-collection">Garbage Collection</h2>
+<p>UE 使用 <strong>标记-清除（Mark &amp; Sweep）</strong> 垃圾回收机制。</p>
+<p>简化流程：</p>
+<pre tabindex="0"><code>GC Root
+   │
+   ├── Object A
+   │      └── Object B
+   │
+   └── Object C
+</code></pre><p>GC 会从 Root 开始遍历：</p>
+<ul>
+<li>可达对象：保留</li>
+<li>不可达对象：销毁</li>
+</ul>
+<p>因此，一个 UObject 如果没有任何可达引用，最终会被 GC 回收。</p>
+<hr>
+<h2 id="uproperty-与-gc">UPROPERTY 与 GC</h2>
+<p>推荐：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UPROPERTY()
+</span></span><span style="display:flex;"><span>UMyObject<span style="color:#f92672">*</span> Inventory;
+</span></span></code></pre></div><p>不要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UMyObject<span style="color:#f92672">*</span> Inventory;
+</span></span></code></pre></div><p>原因：</p>
+<ul>
+<li>UPROPERTY 会参与反射</li>
+<li>GC 能识别引用关系</li>
+<li>Blueprint 可访问（取决于修饰符）</li>
+</ul>
+<p>裸指针不会自动成为 GC 引用。</p>
+<hr>
+<h2 id="tobjectptr">TObjectPtr</h2>
+<p>UE5 推荐使用：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UPROPERTY()
+</span></span><span style="display:flex;"><span>TObjectPtr<span style="color:#f92672">&lt;</span>UStaticMeshComponent<span style="color:#f92672">&gt;</span> Mesh;
+</span></span></code></pre></div><p>优势：</p>
+<ul>
+<li>更好的编辑器支持</li>
+<li>更安全的对象访问</li>
+<li>与未来引擎优化兼容</li>
+</ul>
+<p>对于需要反射和长期保存的 UObject 引用，优先选择 <code>TObjectPtr</code>。</p>
+<hr>
+<h2 id="tweakobjectptr">TWeakObjectPtr</h2>
+<p>弱引用不会阻止对象被 GC。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>TWeakObjectPtr<span style="color:#f92672">&lt;</span>AActor<span style="color:#f92672">&gt;</span> Target;
+</span></span></code></pre></div><p>使用前：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (Target.IsValid())
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    Target<span style="color:#f92672">-&gt;</span>Destroy();
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>适用场景：</p>
+<ul>
+<li>AI Target</li>
+<li>UI 引用 Actor</li>
+<li>缓存对象</li>
+</ul>
+<hr>
+<h2 id="tsoftobjectptr">TSoftObjectPtr</h2>
+<p>软引用保存资源路径，而不是立即加载资源。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UPROPERTY(EditAnywhere)
+</span></span><span style="display:flex;"><span>TSoftObjectPtr<span style="color:#f92672">&lt;</span>UTexture2D<span style="color:#f92672">&gt;</span> Icon;
+</span></span></code></pre></div><p>优点：</p>
+<ul>
+<li>延迟加载</li>
+<li>减少启动内存</li>
+<li>Asset Manager 友好</li>
+</ul>
+<hr>
+<h2 id="tsoftclassptr">TSoftClassPtr</h2>
+<p>软引用 Blueprint Class。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UPROPERTY(EditDefaultsOnly)
+</span></span><span style="display:flex;"><span>TSoftClassPtr<span style="color:#f92672">&lt;</span>AEnemy<span style="color:#f92672">&gt;</span> EnemyClass;
+</span></span></code></pre></div><p>运行时再加载：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>EnemyClass.LoadSynchronous();
+</span></span></code></pre></div><hr>
+<h2 id="tsubclassof">TSubclassOf</h2>
+<p>限制 Blueprint 可选择的类型。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UPROPERTY(EditDefaultsOnly)
+</span></span><span style="display:flex;"><span>TSubclassOf<span style="color:#f92672">&lt;</span>AWeapon<span style="color:#f92672">&gt;</span> WeaponClass;
+</span></span></code></pre></div><p>编辑器中只能指定 <code>AWeapon</code> 或其子类。</p>
+<hr>
+<h1 id="actor-生命周期">Actor 生命周期</h1>
+<p>Actor 从创建到销毁通常经历以下阶段：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Constructor
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>PostInitializeComponents
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>BeginPlay
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>Tick（可选）
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>EndPlay
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>Destroy
+</span></span></code></pre></div><hr>
+<h2 id="constructor">Constructor</h2>
+<p>构造函数中适合：</p>
+<ul>
+<li>创建默认组件</li>
+<li>设置默认值</li>
+</ul>
+<p>避免：</p>
+<ul>
+<li>访问 World</li>
+<li>获取 PlayerController</li>
+<li>加载运行时资源</li>
+</ul>
+<hr>
+<h2 id="beginplay">BeginPlay</h2>
+<p>对象进入世界后调用。</p>
+<p>适合：</p>
+<ul>
+<li>初始化运行逻辑</li>
+<li>注册事件</li>
+<li>获取其他 Actor</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">void</span> AEnemy<span style="color:#f92672">::</span>BeginPlay()
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    Super<span style="color:#f92672">::</span>BeginPlay();
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="tick">Tick</h2>
+<p>每帧执行。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>PrimaryActorTick.bCanEverTick <span style="color:#f92672">=</span> true;
+</span></span></code></pre></div><p>如无必要，应关闭 Tick：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>PrimaryActorTick.bCanEverTick <span style="color:#f92672">=</span> false;
+</span></span></code></pre></div><p>优先使用：</p>
+<ul>
+<li>Timer</li>
+<li>Delegate</li>
+<li>Event</li>
+</ul>
+<p>降低每帧开销。</p>
+<hr>
+<h2 id="endplay">EndPlay</h2>
+<p>Actor 离开世界时调用。</p>
+<p>适合：</p>
+<ul>
+<li>注销委托</li>
+<li>停止 Timer</li>
+<li>清理资源</li>
+</ul>
+<hr>
+<h1 id="gameplay-framework">Gameplay Framework</h1>
+<p>Gameplay Framework 定义了游戏各类对象的职责。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>GameInstance
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>    World
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span> GameMode ─── GameState
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>PlayerController
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>     Pawn
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>   Character
+</span></span></code></pre></div><hr>
+<h2 id="gameinstance">GameInstance</h2>
+<p>整个应用生命周期唯一。</p>
+<p>适合保存：</p>
+<ul>
+<li>登录状态</li>
+<li>全局配置</li>
+<li>在线服务</li>
+<li>跨关卡数据</li>
+</ul>
+<p>不会因关卡切换而销毁。</p>
+<hr>
+<h2 id="gamemode">GameMode</h2>
+<p>仅服务器存在。</p>
+<p>职责：</p>
+<ul>
+<li>游戏规则</li>
+<li>玩家出生</li>
+<li>胜负条件</li>
+</ul>
+<p>客户端无法直接访问。</p>
+<hr>
+<h2 id="gamestate">GameState</h2>
+<p>所有客户端同步。</p>
+<p>适合：</p>
+<ul>
+<li>比赛时间</li>
+<li>当前分数</li>
+<li>回合状态</li>
+</ul>
+<hr>
+<h2 id="playercontroller">PlayerController</h2>
+<p>代表玩家输入。</p>
+<p>职责：</p>
+<ul>
+<li>输入处理</li>
+<li>Camera 控制</li>
+<li>UI 管理</li>
+<li>Possess Pawn</li>
+</ul>
+<p>一个玩家通常对应一个 PlayerController。</p>
+<hr>
+<h2 id="pawn">Pawn</h2>
+<p>可被控制的实体。</p>
+<p>例如：</p>
+<ul>
+<li>车辆</li>
+<li>飞机</li>
+<li>无人机</li>
+</ul>
+<hr>
+<h2 id="character">Character</h2>
+<p>Character 继承自 Pawn，并内置：</p>
+<ul>
+<li>CapsuleComponent</li>
+<li>CharacterMovementComponent</li>
+<li>SkeletalMeshComponent</li>
+</ul>
+<p>适用于大多数角色游戏。</p>
+<hr>
+<h2 id="playerstate">PlayerState</h2>
+<p>保存玩家状态。</p>
+<p>例如：</p>
+<ul>
+<li>玩家名称</li>
+<li>分数</li>
+<li>Ping</li>
+<li>队伍</li>
+</ul>
+<p>支持网络同步。</p>
+<hr>
+<h2 id="hud">HUD</h2>
+<p>负责传统 HUD 绘制。</p>
+<p>现代项目更多使用 UMG，但 HUD 仍可作为 UI 管理入口。</p>
+<hr>
+<h1 id="subsystem">Subsystem</h1>
+<p>Subsystem 用于构建全局管理模块，避免大量 Singleton。</p>
+<p>常见类型：</p>
+<table>
+	<thead>
+			<tr>
+					<th>类型</th>
+					<th>生命周期</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>EngineSubsystem</td>
+					<td>引擎级</td>
+			</tr>
+			<tr>
+					<td>EditorSubsystem</td>
+					<td>编辑器级</td>
+			</tr>
+			<tr>
+					<td>GameInstanceSubsystem</td>
+					<td>游戏级</td>
+			</tr>
+			<tr>
+					<td>WorldSubsystem</td>
+					<td>世界级</td>
+			</tr>
+			<tr>
+					<td>LocalPlayerSubsystem</td>
+					<td>本地玩家级</td>
+			</tr>
+	</tbody>
+</table>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UInventorySubsystem
+</span></span><span style="display:flex;"><span>UQuestSubsystem
+</span></span><span style="display:flex;"><span>UAudioSubsystem
+</span></span></code></pre></div><p>相比自定义 Singleton，Subsystem 生命周期更清晰，也更易测试和扩展。</p>
+<hr>
+<h1 id="本章小结-1">本章小结</h1>
+<p>本章介绍了：</p>
+<ul>
+<li>UObject 创建方式</li>
+<li>NewObject / CreateDefaultSubobject / SpawnActor</li>
+<li>Outer 与对象关系</li>
+<li>Garbage Collection</li>
+<li>UPROPERTY 与对象引用</li>
+<li>TObjectPtr / TWeakObjectPtr / TSoftObjectPtr</li>
+<li>TSubclassOf</li>
+<li>Actor 生命周期</li>
+<li>Gameplay Framework 各核心类职责</li>
+<li>Subsystem 架构</li>
+</ul>
+<p>下一部分将深入介绍：</p>
+<ul>
+<li>Delegate（委托）</li>
+<li>Interface（接口）</li>
+<li>Timer</li>
+<li>Asset Manager</li>
+<li>异步资源加载</li>
+<li>Modules 与 Build.cs</li>
+<li>Logging 与调试技巧</li>
+</ul>
+<h1 id="delegate委托">Delegate（委托）</h1>
+<p>Delegate 是 Unreal Engine 中最重要的事件通信机制之一，可用于对象之间的解耦。</p>
+<p>相比直接持有对象引用，Delegate 能够：</p>
+<ul>
+<li>降低模块耦合</li>
+<li>支持广播</li>
+<li>支持 Blueprint</li>
+<li>更易扩展</li>
+</ul>
+<hr>
+<h2 id="delegate-类型">Delegate 类型</h2>
+<table>
+	<thead>
+			<tr>
+					<th>类型</th>
+					<th>是否有返回值</th>
+					<th>是否支持多个绑定</th>
+					<th>Blueprint</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>DECLARE_DELEGATE</td>
+					<td>✔</td>
+					<td>✘</td>
+					<td>✘</td>
+			</tr>
+			<tr>
+					<td>DECLARE_MULTICAST_DELEGATE</td>
+					<td>✘</td>
+					<td>✔</td>
+					<td>✘</td>
+			</tr>
+			<tr>
+					<td>DECLARE_DYNAMIC_DELEGATE</td>
+					<td>✔</td>
+					<td>✘</td>
+					<td>✔</td>
+			</tr>
+			<tr>
+					<td>DECLARE_DYNAMIC_MULTICAST_DELEGATE</td>
+					<td>✘</td>
+					<td>✔</td>
+					<td>✔</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h2 id="单播-delegate">单播 Delegate</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>DECLARE_DELEGATE(FOnWeaponFire);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>FOnWeaponFire OnWeaponFire;
+</span></span></code></pre></div><p>绑定：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>OnWeaponFire.BindUObject(<span style="color:#66d9ef">this</span>, <span style="color:#f92672">&amp;</span>AMyCharacter<span style="color:#f92672">::</span>Fire);
+</span></span></code></pre></div><p>执行：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (OnWeaponFire.IsBound())
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    OnWeaponFire.Execute();
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="多播-delegate">多播 Delegate</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>DECLARE_MULTICAST_DELEGATE(FOnHealthChanged);
+</span></span></code></pre></div><p>绑定多个对象：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>OnHealthChanged.AddUObject(<span style="color:#66d9ef">this</span>, <span style="color:#f92672">&amp;</span>UMyWidget<span style="color:#f92672">::</span>UpdateUI);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>OnHealthChanged.AddUObject(<span style="color:#66d9ef">this</span>, <span style="color:#f92672">&amp;</span>UMyAudio<span style="color:#f92672">::</span>PlaySound);
+</span></span></code></pre></div><p>广播：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>OnHealthChanged.Broadcast();
+</span></span></code></pre></div><p>所有监听者都会收到通知。</p>
+<hr>
+<h2 id="dynamic-multicast-delegate">Dynamic Multicast Delegate</h2>
+<p>用于 Blueprint：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDead);
+</span></span></code></pre></div><p>声明：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UPROPERTY(BlueprintAssignable)
+</span></span><span style="display:flex;"><span>FOnDead OnDead;
+</span></span></code></pre></div><p>Blueprint：</p>
+<pre tabindex="0"><code>Character
+
+↓
+
+OnDead
+
+↓
+
+Play Animation
+
+↓
+
+Spawn FX
+
+↓
+
+Play Audio
+</code></pre><p>这是 Blueprint Event Dispatcher 的底层机制。</p>
+<hr>
+<h1 id="interface">Interface</h1>
+<p>Interface 用于描述能力（Capability），而不是继承关系。</p>
+<p>例如：</p>
+<pre tabindex="0"><code>Character
+
+Door
+
+Chest
+
+NPC
+</code></pre><p>都可能支持：</p>
+<pre tabindex="0"><code>Interact()
+</code></pre><p>不应该都继承同一个父类。</p>
+<hr>
+<h2 id="创建-interface">创建 Interface</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UINTERFACE(BlueprintType)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">UInteractable</span> <span style="color:#f92672">:</span> <span style="color:#66d9ef">public</span> UInterface
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    GENERATED_BODY()
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>接口：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">IInteractable</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    GENERATED_BODY()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">virtual</span> <span style="color:#66d9ef">void</span> Interact() <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><hr>
+<h2 id="调用">调用</h2>
+<p>推荐：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (Actor<span style="color:#f92672">-&gt;</span>Implements<span style="color:#f92672">&lt;</span>UInteractable<span style="color:#f92672">&gt;</span>())
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    IInteractable<span style="color:#f92672">::</span>Execute_Interact(Actor);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>不要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>Cast<span style="color:#f92672">&lt;</span>IInteractable<span style="color:#f92672">&gt;</span>(Actor)
+</span></span></code></pre></div><p>Blueprint Interface 应优先使用 <code>Execute_XXX()</code>。</p>
+<hr>
+<h1 id="timer">Timer</h1>
+<p>不要为了等待几秒而使用 Tick。</p>
+<p>推荐：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>GetWorld()<span style="color:#f92672">-&gt;</span>GetTimerManager().SetTimer(
+</span></span><span style="display:flex;"><span>    FireHandle,
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&amp;</span>AMyCharacter<span style="color:#f92672">::</span>Reload,
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">2.f</span>,
+</span></span><span style="display:flex;"><span>    false
+</span></span><span style="display:flex;"><span>);
+</span></span></code></pre></div><hr>
+<p>循环 Timer：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>SetTimer(
+</span></span><span style="display:flex;"><span>    Handle,
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&amp;</span>AMyCharacter<span style="color:#f92672">::</span>RecoverHP,
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">1.f</span>,
+</span></span><span style="display:flex;"><span>    true
+</span></span><span style="display:flex;"><span>);
+</span></span></code></pre></div><p>停止：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>ClearTimer(Handle);
+</span></span></code></pre></div><hr>
+<h1 id="asset-引用">Asset 引用</h1>
+<p>UE 中主要有三种资源引用方式：</p>
+<pre tabindex="0"><code>Hard Reference
+
+Soft Reference
+
+Primary Asset
+</code></pre><hr>
+<h2 id="hard-reference">Hard Reference</h2>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UPROPERTY(EditAnywhere)
+</span></span><span style="display:flex;"><span>UTexture2D<span style="color:#f92672">*</span> Icon;
+</span></span></code></pre></div><p>特点：</p>
+<ul>
+<li>自动加载</li>
+<li>简单</li>
+<li>内存占用较高</li>
+</ul>
+<p>适用于：</p>
+<ul>
+<li>必定需要的资源</li>
+</ul>
+<hr>
+<h2 id="soft-reference">Soft Reference</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UPROPERTY(EditAnywhere)
+</span></span><span style="display:flex;"><span>TSoftObjectPtr<span style="color:#f92672">&lt;</span>UTexture2D<span style="color:#f92672">&gt;</span> Icon;
+</span></span></code></pre></div><p>不会立即加载资源。</p>
+<p>优点：</p>
+<ul>
+<li>减少启动时间</li>
+<li>节省内存</li>
+<li>支持按需加载</li>
+</ul>
+<hr>
+<h2 id="asset-manager">Asset Manager</h2>
+<p>大型项目推荐统一管理资源。</p>
+<p>例如：</p>
+<pre tabindex="0"><code>Weapons
+
+Characters
+
+Abilities
+
+Items
+</code></pre><p>都可以作为：</p>
+<pre tabindex="0"><code>Primary Asset
+</code></pre><p>管理。</p>
+<p>好处：</p>
+<ul>
+<li>按需加载</li>
+<li>批量加载</li>
+<li>支持 DLC</li>
+<li>易于资源分类</li>
+</ul>
+<hr>
+<h2 id="异步加载">异步加载</h2>
+<p>推荐：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>StreamableManager.RequestAsyncLoad(
+</span></span><span style="display:flex;"><span>    Asset.ToSoftObjectPath(),
+</span></span><span style="display:flex;"><span>    FStreamableDelegate<span style="color:#f92672">::</span>CreateLambda(
+</span></span><span style="display:flex;"><span>        []()
+</span></span><span style="display:flex;"><span>        {
+</span></span><span style="display:flex;"><span>            UE_LOG(LogTemp, Log, TEXT(<span style="color:#e6db74">&#34;Loaded&#34;</span>));
+</span></span><span style="display:flex;"><span>        })
+</span></span><span style="display:flex;"><span>);
+</span></span></code></pre></div><p>避免同步加载导致卡顿。</p>
+<hr>
+<h1 id="module">Module</h1>
+<p>大型 UE 项目通常拆分多个 Module。</p>
+<p>例如：</p>
+<pre tabindex="0"><code>MyGame
+
+Inventory
+
+Combat
+
+AI
+
+UI
+
+Online
+</code></pre><p>每个 Module：</p>
+<pre tabindex="0"><code>Public/
+
+Private/
+
+Build.cs
+</code></pre><p>互相通过依赖关系协作。</p>
+<hr>
+<h1 id="buildcs">Build.cs</h1>
+<p>典型配置：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-csharp" data-lang="csharp"><span style="display:flex;"><span>PublicDependencyModuleNames.AddRange(
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">new</span> <span style="color:#66d9ef">string</span>[]
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;Core&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;CoreUObject&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;Engine&#34;</span>
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><p>如果使用：</p>
+<ul>
+<li>UMG</li>
+<li>GameplayTasks</li>
+<li>AIModule</li>
+</ul>
+<p>需要添加对应模块依赖。</p>
+<hr>
+<h1 id="日志系统">日志系统</h1>
+<p>推荐使用分类日志。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>DEFINE_LOG_CATEGORY(LogInventory);
+</span></span></code></pre></div><p>输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UE_LOG(
+</span></span><span style="display:flex;"><span>    LogInventory,
+</span></span><span style="display:flex;"><span>    Warning,
+</span></span><span style="display:flex;"><span>    TEXT(<span style="color:#e6db74">&#34;Item Count=%d&#34;</span>),
+</span></span><span style="display:flex;"><span>    Count
+</span></span><span style="display:flex;"><span>);
+</span></span></code></pre></div><p>避免长期使用：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>LogTemp
+</span></span></code></pre></div><hr>
+<h2 id="日志等级">日志等级</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Fatal
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Error
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Warning
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Display
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Log
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Verbose
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>VeryVerbose
+</span></span></code></pre></div><p>开发阶段可提高 Verbose 等级帮助排查问题。</p>
+<hr>
+<h1 id="assert">Assert</h1>
+<p>检查不可恢复错误：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>check(Player);
+</span></span></code></pre></div><p>失败会中断程序。</p>
+<hr>
+<p>非致命检查：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>ensure(Player);
+</span></span></code></pre></div><p>仅记录错误并继续运行。</p>
+<p>适用于：</p>
+<ul>
+<li>调试</li>
+<li>非关键逻辑验证</li>
+</ul>
+<hr>
+<h1 id="cast">Cast</h1>
+<p>推荐：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>ACharacter<span style="color:#f92672">*</span> Character <span style="color:#f92672">=</span>
+</span></span><span style="display:flex;"><span>Cast<span style="color:#f92672">&lt;</span>ACharacter<span style="color:#f92672">&gt;</span>(Actor);
+</span></span></code></pre></div><p>不要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">static_cast</span>
+</span></span></code></pre></div><p>用于 UObject 类型。</p>
+<p>原因：</p>
+<p>Cast 会利用 UE Reflection 判断类型安全。</p>
+<hr>
+<h1 id="常见编码建议">常见编码建议</h1>
+<h2 id="优先组合而不是继承">优先组合，而不是继承</h2>
+<p>推荐：</p>
+<pre tabindex="0"><code>Character
+
+├── InventoryComponent
+
+├── HealthComponent
+
+├── AbilityComponent
+
+└── InteractionComponent
+</code></pre><p>而不是：</p>
+<pre tabindex="0"><code>Character
+
+↓
+
+CombatCharacter
+
+↓
+
+InventoryCharacter
+
+↓
+
+MagicCharacter
+
+↓
+
+BossCharacter
+</code></pre><p>组件化更易维护。</p>
+<hr>
+<h2 id="减少-tick">减少 Tick</h2>
+<p>优先选择：</p>
+<ul>
+<li>Delegate</li>
+<li>Timer</li>
+<li>Event</li>
+<li>Gameplay Ability</li>
+<li>Animation Notify</li>
+</ul>
+<p>只有确实需要每帧更新时再开启 Tick。</p>
+<hr>
+<h2 id="最小化-include">最小化 Include</h2>
+<p>Header：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">UInventoryComponent</span>;
+</span></span></code></pre></div><p>CPP：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;InventoryComponent.h&#34;</span><span style="color:#75715e">
+</span></span></span></code></pre></div><p>这样可以显著减少编译时间。</p>
+<hr>
+<h2 id="避免-god-object">避免 God Object</h2>
+<p>不要把所有逻辑都放进：</p>
+<pre tabindex="0"><code>Character.cpp
+</code></pre><p>超过几千行代码通常意味着需要拆分。</p>
+<p>建议：</p>
+<ul>
+<li>InventoryComponent</li>
+<li>EquipmentComponent</li>
+<li>InteractionComponent</li>
+<li>AttributeComponent</li>
+<li>QuestComponent</li>
+</ul>
+<hr>
+<h1 id="推荐项目结构">推荐项目结构</h1>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Source/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    MyGame/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        Public/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        Private/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Inventory/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        Public/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        Private/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Combat/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    UI/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    AI/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Online/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Save/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Content/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Config/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Plugins/
+</span></span></code></pre></div><p>随着项目规模增长，可进一步拆分为独立插件（Plugins），实现更高的模块复用。</p>
+<hr>
+<h1 id="本章小结-2">本章小结</h1>
+<p>本章介绍了：</p>
+<ul>
+<li>Delegate 与事件驱动</li>
+<li>Interface 设计</li>
+<li>Timer 的正确使用</li>
+<li>Asset 引用与 Asset Manager</li>
+<li>异步资源加载</li>
+<li>Module 与 Build.cs</li>
+<li>日志系统</li>
+<li>Cast 与类型安全</li>
+<li>组件化设计原则</li>
+<li>大型项目目录组织</li>
+</ul>
+<p>下一部分将重点介绍：</p>
+<ul>
+<li>Profiling 与性能优化</li>
+<li>常见性能陷阱</li>
+<li>Networking 最佳实践</li>
+<li>SaveGame 架构</li>
+<li>Coding Standard</li>
+<li>UE C++ 开发最佳实践总结</li>
+<li>推荐学习资源</li>
+</ul>
+<h1 id="performance-profiling性能分析">Performance Profiling（性能分析）</h1>
+<p>性能优化应遵循一个原则：</p>
+<blockquote>
+<p><strong>先测量，再优化（Measure First, Optimize Second）。</strong></p>
+</blockquote>
+<p>不要凭感觉优化代码，而应借助 Unreal Engine 提供的分析工具定位瓶颈。</p>
+<hr>
+<h2 id="unreal-insights">Unreal Insights</h2>
+<p>Unreal Insights 是 UE 官方性能分析工具。</p>
+<p>适合分析：</p>
+<ul>
+<li>CPU Timeline</li>
+<li>Game Thread</li>
+<li>Render Thread</li>
+<li>Async Task</li>
+<li>Memory</li>
+<li>Asset Loading</li>
+</ul>
+<p>推荐流程：</p>
+<pre tabindex="0"><code>发现卡顿
+      │
+Capture Trace
+      │
+Unreal Insights
+      │
+定位瓶颈
+      │
+优化
+</code></pre><hr>
+<h2 id="stat-commands">Stat Commands</h2>
+<p>开发过程中常用：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>stat fps
+</span></span><span style="display:flex;"><span>stat unit
+</span></span><span style="display:flex;"><span>stat game
+</span></span><span style="display:flex;"><span>stat gpu
+</span></span><span style="display:flex;"><span>stat memory
+</span></span><span style="display:flex;"><span>stat anim
+</span></span><span style="display:flex;"><span>stat ai
+</span></span></code></pre></div><p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>stat unit
+</span></span></code></pre></div><p>可以看到：</p>
+<pre tabindex="0"><code>Frame
+
+Game
+
+Draw
+
+GPU
+</code></pre><p>快速判断瓶颈来自 CPU 还是 GPU。</p>
+<hr>
+<h2 id="常见性能问题">常见性能问题</h2>
+<h3 id="tick-太多">Tick 太多</h3>
+<p>例如：</p>
+<pre tabindex="0"><code>500 Actor
+
+↓
+
+500 Tick
+
+↓
+
+每秒 30000 次 Tick
+</code></pre><p>解决方案：</p>
+<ul>
+<li>Timer</li>
+<li>Delegate</li>
+<li>Event</li>
+<li>AI Perception</li>
+<li>Animation Notify</li>
+</ul>
+<hr>
+<h3 id="getallactorsofclass">GetAllActorsOfClass</h3>
+<p>不要频繁调用：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UGameplayStatics<span style="color:#f92672">::</span>GetAllActorsOfClass(...)
+</span></span></code></pre></div><p>尤其不要在 Tick 中调用。</p>
+<p>推荐：</p>
+<ul>
+<li>Subsystem 管理</li>
+<li>注册机制</li>
+<li>Gameplay Tag 查询</li>
+<li>Manager 缓存</li>
+</ul>
+<hr>
+<h3 id="cast-过多">Cast 过多</h3>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>Tick()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">↓</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Cast()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">↓</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Cast()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">↓</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Cast()
+</span></span></code></pre></div><p>频繁 Cast 会增加运行时开销。</p>
+<p>推荐：</p>
+<p>BeginPlay 缓存：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>CachedPlayer <span style="color:#f92672">=</span> Cast<span style="color:#f92672">&lt;</span>AMyPlayer<span style="color:#f92672">&gt;</span>(GetPlayerPawn());
+</span></span></code></pre></div><hr>
+<h3 id="动态加载资源">动态加载资源</h3>
+<p>避免：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>LoadObject()
+</span></span></code></pre></div><p>出现在：</p>
+<pre tabindex="0"><code>Tick
+
+BeginPlay
+
+Animation Tick
+</code></pre><p>推荐：</p>
+<p>Asset Manager</p>
+<p>Soft Reference</p>
+<p>Async Loading</p>
+<hr>
+<h1 id="networking">Networking</h1>
+<p>UE 网络采用：</p>
+<pre tabindex="0"><code>Server Authority
+</code></pre><p>模型。</p>
+<pre tabindex="0"><code>Client
+
+      │
+
+RPC
+
+      │
+
+Server
+
+      │
+
+Replication
+
+      │
+
+Client
+</code></pre><hr>
+<h2 id="replication">Replication</h2>
+<p>变量：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UPROPERTY(Replicated)
+</span></span><span style="display:flex;"><span>int32 Health;
+</span></span></code></pre></div><p>需要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>GetLifetimeReplicatedProps(...)
+</span></span></code></pre></div><p>注册。</p>
+<hr>
+<h2 id="repnotify">RepNotify</h2>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UPROPERTY(ReplicatedUsing<span style="color:#f92672">=</span>OnRep_Health)
+</span></span><span style="display:flex;"><span>int32 Health;
+</span></span></code></pre></div><p>同步后：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>OnRep_Health()
+</span></span></code></pre></div><p>自动调用。</p>
+<p>适合：</p>
+<ul>
+<li>更新 UI</li>
+<li>播放特效</li>
+<li>更新动画</li>
+</ul>
+<hr>
+<h2 id="rpc">RPC</h2>
+<p>主要分三类：</p>
+<p>Server：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UFUNCTION(Server,Reliable)
+</span></span></code></pre></div><p>Client：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UFUNCTION(Client,Reliable)
+</span></span></code></pre></div><p>Multicast：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UFUNCTION(NetMulticast,Reliable)
+</span></span></code></pre></div><p>推荐：</p>
+<pre tabindex="0"><code>Input
+
+↓
+
+Server
+
+↓
+
+Validate
+
+↓
+
+Game Logic
+
+↓
+
+Replication
+
+↓
+
+Clients
+</code></pre><p>不要相信客户端。</p>
+<hr>
+<h1 id="savegame">SaveGame</h1>
+<p>推荐：</p>
+<pre tabindex="0"><code>USaveGame
+</code></pre><p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UCLASS()
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">UMySaveGame</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">:</span> <span style="color:#66d9ef">public</span> USaveGame
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    GENERATED_BODY()
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>保存：</p>
+<pre tabindex="0"><code>Player
+
+Inventory
+
+Quest
+
+Level
+
+Settings
+</code></pre><p>不要直接保存 Actor。</p>
+<p>推荐保存：</p>
+<pre tabindex="0"><code>ID
+
+Transform
+
+Data
+</code></pre><p>重新生成对象。</p>
+<hr>
+<h1 id="data-driven-design">Data Driven Design</h1>
+<p>推荐：</p>
+<pre tabindex="0"><code>Weapon
+
+↓
+
+DataAsset
+
+↓
+
+Blueprint
+
+↓
+
+Runtime
+</code></pre><p>而不是：</p>
+<pre tabindex="0"><code>Weapon.cpp
+
+↓
+
+if
+
+↓
+
+switch
+
+↓
+
+switch
+
+↓
+
+switch
+</code></pre><p>数据驱动：</p>
+<ul>
+<li>易扩展</li>
+<li>美术可配置</li>
+<li>无需修改代码</li>
+</ul>
+<hr>
+<h1 id="gameplay-tags">Gameplay Tags</h1>
+<p>推荐：</p>
+<pre tabindex="0"><code>Weapon.Rifle
+
+Weapon.Pistol
+
+Enemy.Boss
+
+Ability.Fire
+</code></pre><p>不要：</p>
+<pre tabindex="0"><code>if(Name==&#34;Boss&#34;)
+</code></pre><p>Gameplay Tag：</p>
+<ul>
+<li>更安全</li>
+<li>可组合</li>
+<li>支持查询</li>
+</ul>
+<hr>
+<h1 id="coding-standard">Coding Standard</h1>
+<p>推荐遵循 Epic Coding Standard。</p>
+<p>例如：</p>
+<p>类：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>AMyCharacter
+</span></span></code></pre></div><p>UObject：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UMyInventory
+</span></span></code></pre></div><p>Struct：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>FInventoryItem
+</span></span></code></pre></div><p>Interface：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>IInteractable
+</span></span></code></pre></div><p>Enum：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>EWeaponType
+</span></span></code></pre></div><p>Boolean：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>bIsDead
+</span></span></code></pre></div><hr>
+<p>变量：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>Health
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>CurrentAmmo
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>MaxAmmo
+</span></span></code></pre></div><p>函数：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>Reload()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>TakeDamage()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>BeginPlay()
+</span></span></code></pre></div><p>保持：</p>
+<ul>
+<li>动词</li>
+<li>可读</li>
+</ul>
+<hr>
+<h1 id="注释原则">注释原则</h1>
+<p>不要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#75715e">// Add one
+</span></span></span><span style="display:flex;"><span>A<span style="color:#f92672">++</span>;
+</span></span></code></pre></div><p>推荐：</p>
+<p>解释原因：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#75715e">// Delay weapon activation until animation finishes.
+</span></span></span></code></pre></div><p>说明：</p>
+<p>为什么这样做。</p>
+<p>而不是：</p>
+<p>做了什么。</p>
+<hr>
+<h1 id="architecture-best-practice">Architecture Best Practice</h1>
+<p>推荐：</p>
+<pre tabindex="0"><code>Subsystem
+
+↓
+
+Manager
+
+↓
+
+Component
+
+↓
+
+Actor
+
+↓
+
+Widget
+</code></pre><p>避免：</p>
+<pre tabindex="0"><code>Widget
+
+↓
+
+Character
+
+↓
+
+Character
+
+↓
+
+Widget
+
+↓
+
+Manager
+
+↓
+
+Character
+</code></pre><p>循环依赖。</p>
+<hr>
+<p>推荐：</p>
+<pre tabindex="0"><code>Character
+
+↓
+
+Component
+
+↓
+
+Delegate
+
+↓
+
+Widget
+</code></pre><p>单向依赖。</p>
+<hr>
+<h1 id="推荐目录结构">推荐目录结构</h1>
+<pre tabindex="0"><code>Source/
+
+    Core/
+
+    Gameplay/
+
+    Combat/
+
+    Inventory/
+
+    Interaction/
+
+    UI/
+
+    AI/
+
+    Save/
+
+    Online/
+
+Plugins/
+
+Content/
+
+Config/
+</code></pre><p>大型项目建议：</p>
+<p>一个系统</p>
+<p>=</p>
+<p>一个 Module</p>
+<hr>
+<h1 id="常见错误">常见错误</h1>
+<h2 id="忘记-uproperty">忘记 UPROPERTY</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>UMyObject<span style="color:#f92672">*</span> Obj;
+</span></span></code></pre></div><p>可能被 GC 回收。</p>
+<hr>
+<h2 id="beginplay-做太多事情">BeginPlay 做太多事情</h2>
+<p>不要：</p>
+<pre tabindex="0"><code>Load
+
+Spawn
+
+Init
+
+Search
+
+Save
+
+Network
+
+UI
+</code></pre><p>全部放进去。</p>
+<p>推荐：</p>
+<p>Subsystem</p>
+<ul>
+<li></li>
+</ul>
+<p>Manager</p>
+<p>负责初始化。</p>
+<hr>
+<h2 id="character-超过五千行">Character 超过五千行</h2>
+<p>意味着：</p>
+<p>需要拆分 Component。</p>
+<hr>
+<h2 id="tick-中查找对象">Tick 中查找对象</h2>
+<p>不要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>GetPlayerController()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GetWorld()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GetActorLocation()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Cast()
+</span></span></code></pre></div><p>每帧重复获取。</p>
+<p>推荐：</p>
+<p>缓存。</p>
+<hr>
+<h1 id="学习路线">学习路线</h1>
+<p>建议顺序：</p>
+<pre tabindex="0"><code>Modern C++
+
+↓
+
+UE Reflection
+
+↓
+
+Gameplay Framework
+
+↓
+
+UObject
+
+↓
+
+GC
+
+↓
+
+Component
+
+↓
+
+Delegate
+
+↓
+
+Interface
+
+↓
+
+Asset Manager
+
+↓
+
+Networking
+
+↓
+
+GAS
+
+↓
+
+Slate
+
+↓
+
+Engine Source
+</code></pre><hr>
+<h1 id="推荐阅读">推荐阅读</h1>
+<h2 id="epic-官方">Epic 官方</h2>
+<ul>
+<li>Unreal Engine Documentation</li>
+<li>Unreal Engine API Reference</li>
+<li>Gameplay Framework</li>
+<li>Networking Guide</li>
+<li>Asset Manager</li>
+</ul>
+<hr>
+<h2 id="官方源码">官方源码</h2>
+<p>建议阅读：</p>
+<pre tabindex="0"><code>Actor
+
+ActorComponent
+
+Character
+
+CharacterMovementComponent
+
+GameModeBase
+
+GameInstance
+
+PlayerController
+</code></pre><p>理解：</p>
+<p>Epic 如何组织代码。</p>
+<hr>
+<h2 id="推荐项目">推荐项目</h2>
+<p>学习：</p>
+<ul>
+<li>Lyra Starter Game</li>
+<li>ActionRPG Sample</li>
+<li>ShooterGame（历史示例）</li>
+</ul>
+<p>重点关注：</p>
+<ul>
+<li>模块划分</li>
+<li>Gameplay Framework</li>
+<li>GAS</li>
+<li>Input</li>
+<li>UI</li>
+</ul>
+<hr>
+<h1 id="ue-c-开发核心原则">UE C++ 开发核心原则</h1>
+<p>可以总结为以下十条：</p>
+<ol>
+<li>使用 C++ 构建框架，Blueprint 负责扩展。</li>
+<li>优先组合（Component），避免过深继承。</li>
+<li>使用 <code>UPROPERTY</code> 管理 UObject 引用。</li>
+<li>使用 <code>TObjectPtr</code>、<code>TWeakObjectPtr</code>、<code>TSoftObjectPtr</code> 管理不同生命周期的对象。</li>
+<li>减少 Tick，优先事件驱动。</li>
+<li>使用 Delegate 解耦模块。</li>
+<li>使用 Interface 表达能力，而不是滥用继承。</li>
+<li>使用 Soft Reference 和 Asset Manager 管理大型资源。</li>
+<li>通过 Unreal Insights 和 Stat 命令定位性能问题，而不是凭感觉优化。</li>
+<li>保持模块化和数据驱动设计，让系统更易维护和扩展。</li>
+</ol>
+<hr>
+<h1 id="结语">结语</h1>
+<p>Unreal Engine 的 C++ 并不是为了取代 Blueprint，而是为了构建稳定、可维护、可扩展的底层架构。</p>
+<p>优秀的 UE 项目通常遵循以下分工：</p>
+<pre tabindex="0"><code>                Designer
+                    │
+             Blueprint / DataAsset
+                    │
+             Gameplay Components
+                    │
+            Gameplay Framework
+                    │
+             Engine Runtime
+</code></pre><p>当你能够熟练掌握 UObject 生命周期、反射系统、Gameplay Framework、组件化设计、事件驱动、资源管理以及网络同步后，就已经具备了开发中大型 Unreal Engine 项目的核心能力。</p>
+<p>后续可以进一步深入：</p>
+<ul>
+<li>Gameplay Ability System（GAS）</li>
+<li>Slate UI</li>
+<li>Editor Extension</li>
+<li>Rendering Pipeline</li>
+<li>Animation System</li>
+<li>Mass Entity</li>
+<li>Chaos Physics</li>
+<li>Unreal Engine Source Code</li>
+</ul>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/ue5/">UE5</a></li>
+        <li><a href="/tags/c&#43;&#43;/">C&#43;&#43;</a></li>
+        <li><a href="/tags/gameplay-framework/">Gameplay Framework</a></li>
+        <li><a href="/tags/uobject/">UObject</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>
