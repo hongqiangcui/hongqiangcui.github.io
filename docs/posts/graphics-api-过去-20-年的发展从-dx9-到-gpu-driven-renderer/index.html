@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Graphics API 过去 20 年的发展：从 DX9 到 GPU Driven Renderer | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>Graphics API 过去 20 年的发展：从 DX9 到 GPU Driven Renderer</h1>
+
+  
+  
+  <time datetime="2026-08-07T00:00:00&#43;00:00">August 7, 2026</time>
+
+  <h1 id="graphics-api-过去-20-年的发展">Graphics API 过去 20 年的发展</h1>
+<blockquote>
+<p>Graphics API 的演进，并不仅仅是 <strong>DX9 → DX11 → DX12</strong>。</p>
+<p>更准确地说，它经历了 <strong>Renderer Ownership（渲染控制权）</strong> 的不断迁移：</p>
+<p><strong>Driver → Application → GPU</strong></p>
+</blockquote>
+<hr>
+<h1 id="总览">总览</h1>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">flowchart LR
+
+DX9[&#34;DX9 / OpenGL&lt;br/&gt;Immediate Mode&#34;]
+
+DX11[&#34;DX11&lt;br/&gt;Driver Command Buffer&#34;]
+
+DX12[&#34;DX12 / Vulkan&lt;br/&gt;Explicit API&#34;]
+
+GPUDriven[&#34;GPU Driven Renderer&#34;]
+
+Nanite[&#34;Mesh Shader / Nanite&#34;]
+
+DX9 --&gt; DX11
+DX11 --&gt; DX12
+DX12 --&gt; GPUDriven
+GPUDriven --&gt; Nanite
+</code></pre><hr>
+<h1 id="第一阶段immediate-modedx9--opengl">第一阶段：Immediate Mode（DX9 / OpenGL）</h1>
+<h2 id="架构">架构</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Application
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>      ▼
+</span></span><span style="display:flex;"><span>DX Runtime
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>      ▼
+</span></span><span style="display:flex;"><span>Driver
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>      ▼
+</span></span><span style="display:flex;"><span>GPU
+</span></span></code></pre></div><hr>
+<h2 id="典型代码">典型代码</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>SetTexture();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>SetShader();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>SetBlend();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Draw();
+</span></span></code></pre></div><hr>
+<h2 id="driver-工作">Driver 工作</h2>
+<p>每次 Draw 前：</p>
+<p>Driver 都需要：</p>
+<ul>
+<li>Validate State</li>
+<li>Shader Binding</li>
+<li>Blend State</li>
+<li>Rasterizer State</li>
+<li>Pipeline Build</li>
+</ul>
+<p>CPU 大量时间消耗在：</p>
+<pre tabindex="0"><code>Driver Validation
+</code></pre><p>而不是：</p>
+<p>GPU。</p>
+<hr>
+<h2 id="特点">特点</h2>
+<table>
+	<thead>
+			<tr>
+					<th>项目</th>
+					<th>描述</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>API 风格</td>
+					<td>Immediate Mode</td>
+			</tr>
+			<tr>
+					<td>Driver 工作量</td>
+					<td>非常大</td>
+			</tr>
+			<tr>
+					<td>Pipeline</td>
+					<td>Driver 动态组合</td>
+			</tr>
+			<tr>
+					<td>CPU 开销</td>
+					<td>高</td>
+			</tr>
+			<tr>
+					<td>GPU 提交</td>
+					<td>Driver 控制</td>
+			</tr>
+			<tr>
+					<td>Draw Command</td>
+					<td>CPU</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="第二阶段driver-command-bufferdx11">第二阶段：Driver Command Buffer（DX11）</h1>
+<p>DX11：</p>
+<p>最大的变化：</p>
+<p>不是 GPU Driven。</p>
+<p>而是：</p>
+<p>Driver：</p>
+<p>开始：</p>
+<p>维护：</p>
+<p>Command Buffer。</p>
+<hr>
+<h2 id="架构-1">架构</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Application
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Immediate Context
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Driver Command Buffer
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU
+</span></span></code></pre></div><hr>
+<h2 id="改进">改进</h2>
+<p>CPU：</p>
+<p>不用：</p>
+<p>每个 Draw：</p>
+<p>都等待 GPU。</p>
+<p>Driver：</p>
+<p>可以：</p>
+<p>缓存：</p>
+<p>Command。</p>
+<hr>
+<h2 id="但是">但是</h2>
+<p>Driver：</p>
+<p>仍然：</p>
+<p>负责：</p>
+<ul>
+<li>State Validation</li>
+<li>Pipeline Build</li>
+<li>State Merge</li>
+</ul>
+<p>CPU：</p>
+<p>仍然：</p>
+<p>大量：</p>
+<p>进入：</p>
+<p>Driver。</p>
+<hr>
+<h2 id="特点-1">特点</h2>
+<table>
+	<thead>
+			<tr>
+					<th>项目</th>
+					<th>描述</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Driver</td>
+					<td>仍然很重</td>
+			</tr>
+			<tr>
+					<td>CPU</td>
+					<td>仍然依赖 Driver</td>
+			</tr>
+			<tr>
+					<td>Pipeline</td>
+					<td>Driver 动态创建</td>
+			</tr>
+			<tr>
+					<td>Draw Command</td>
+					<td>CPU</td>
+			</tr>
+			<tr>
+					<td>Visibility</td>
+					<td>CPU</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="第三阶段explicit-apidx12--vulkan--metal">第三阶段：Explicit API（DX12 / Vulkan / Metal）</h1>
+<p>这是现代 Renderer 的真正起点。</p>
+<p>Driver：</p>
+<p>开始退出。</p>
+<p>Application：</p>
+<p>自己：</p>
+<p>管理：</p>
+<p>Pipeline。</p>
+<hr>
+<h2 id="架构-2">架构</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Application
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>PSO
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Command List
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>ExecuteCommandLists()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU
+</span></span></code></pre></div><hr>
+<h2 id="新增概念">新增概念</h2>
+<ul>
+<li>PSO</li>
+<li>Command List</li>
+<li>Descriptor Heap</li>
+<li>Fence</li>
+<li>Explicit Resource State</li>
+</ul>
+<hr>
+<h2 id="最大变化">最大变化</h2>
+<p>Driver：</p>
+<p>不再：</p>
+<p>负责：</p>
+<p>Pipeline。</p>
+<p>而是：</p>
+<p>Application：</p>
+<p>提前：</p>
+<p>创建：</p>
+<p>PSO。</p>
+<p>运行时：</p>
+<p>只有：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>SetPipelineState();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Draw();
+</span></span></code></pre></div><hr>
+<h2 id="特点-2">特点</h2>
+<table>
+	<thead>
+			<tr>
+					<th>项目</th>
+					<th>描述</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Driver</td>
+					<td>很轻</td>
+			</tr>
+			<tr>
+					<td>Pipeline</td>
+					<td>PSO</td>
+			</tr>
+			<tr>
+					<td>CPU</td>
+					<td>自己管理资源</td>
+			</tr>
+			<tr>
+					<td>Draw Command</td>
+					<td>CPU</td>
+			</tr>
+			<tr>
+					<td>Visibility</td>
+					<td>CPU</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="第四阶段gpu-driven-renderer">第四阶段：GPU Driven Renderer</h1>
+<p>真正的革命：</p>
+<p>不是：</p>
+<p>PSO。</p>
+<p>而是：</p>
+<p>GPU：</p>
+<p>开始：</p>
+<p>拥有：</p>
+<p>Visibility。</p>
+<hr>
+<h2 id="架构-3">架构</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>CPU
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU Scene
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Compute Shader
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU Visibility
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>ExecuteIndirect
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Rasterizer
+</span></span></code></pre></div><hr>
+<h2 id="cpu-不再负责">CPU 不再负责</h2>
+<p>CPU：</p>
+<p>不再：</p>
+<p>生成：</p>
+<p>Visible Draw List。</p>
+<p>GPU：</p>
+<p>自己：</p>
+<p>完成：</p>
+<ul>
+<li>Instance Culling</li>
+<li>Visibility</li>
+<li>Draw Arguments</li>
+</ul>
+<hr>
+<h2 id="executeindirect">ExecuteIndirect</h2>
+<p>CPU：</p>
+<p>只需要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>ExecuteIndirect();
+</span></span></code></pre></div><p>GPU：</p>
+<p>自己：</p>
+<p>读取：</p>
+<pre tabindex="0"><code>Indirect Buffer
+</code></pre><p>决定：</p>
+<p>真正：</p>
+<p>Draw：</p>
+<p>哪些：</p>
+<p>对象。</p>
+<hr>
+<h2 id="特点-3">特点</h2>
+<table>
+	<thead>
+			<tr>
+					<th>项目</th>
+					<th>描述</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Visibility</td>
+					<td>GPU</td>
+			</tr>
+			<tr>
+					<td>Draw Arguments</td>
+					<td>GPU</td>
+			</tr>
+			<tr>
+					<td>Draw Submission</td>
+					<td>GPU</td>
+			</tr>
+			<tr>
+					<td>CPU</td>
+					<td>Dispatch Compute</td>
+			</tr>
+			<tr>
+					<td>Driver</td>
+					<td>极少参与</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="第五阶段mesh-shader--nanite">第五阶段：Mesh Shader / Nanite</h1>
+<p>真正：</p>
+<p>Geometry：</p>
+<p>开始：</p>
+<p>GPU Driven。</p>
+<hr>
+<h2 id="传统-renderer">传统 Renderer</h2>
+<pre tabindex="0"><code>Mesh
+
+↓
+
+Draw Mesh
+</code></pre><hr>
+<h2 id="nanite">Nanite</h2>
+<pre tabindex="0"><code>Mesh
+
+↓
+
+Cluster
+
+↓
+
+Cluster Culling
+
+↓
+
+Cluster LOD
+
+↓
+
+ExecuteIndirect
+
+↓
+
+Raster
+</code></pre><p>GPU：</p>
+<p>不再：</p>
+<p>以：</p>
+<p>Mesh：</p>
+<p>作为：</p>
+<p>Draw Unit。</p>
+<p>而是：</p>
+<p>Cluster。</p>
+<hr>
+<h2 id="特点-4">特点</h2>
+<table>
+	<thead>
+			<tr>
+					<th>项目</th>
+					<th>描述</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Draw Unit</td>
+					<td>Cluster</td>
+			</tr>
+			<tr>
+					<td>Visibility</td>
+					<td>GPU</td>
+			</tr>
+			<tr>
+					<td>LOD</td>
+					<td>GPU</td>
+			</tr>
+			<tr>
+					<td>Triangle Reduction</td>
+					<td>GPU</td>
+			</tr>
+			<tr>
+					<td>CPU</td>
+					<td>基本退出 Geometry 管理</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="五个时代对比">五个时代对比</h1>
+<table>
+	<thead>
+			<tr>
+					<th>对比项</th>
+					<th>DX9</th>
+					<th>DX11</th>
+					<th>DX12</th>
+					<th>GPU Driven</th>
+					<th>Nanite</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Driver 工作</td>
+					<td>★★★★★</td>
+					<td>★★★★☆</td>
+					<td>★☆☆☆☆</td>
+					<td>★☆☆☆☆</td>
+					<td>★☆☆☆☆</td>
+			</tr>
+			<tr>
+					<td>PSO</td>
+					<td>❌</td>
+					<td>❌</td>
+					<td>✅</td>
+					<td>✅</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Command Buffer</td>
+					<td>Driver</td>
+					<td>Driver</td>
+					<td>Application</td>
+					<td>Application</td>
+					<td>Application</td>
+			</tr>
+			<tr>
+					<td>Draw Command</td>
+					<td>CPU</td>
+					<td>CPU</td>
+					<td>CPU</td>
+					<td>GPU</td>
+					<td>GPU</td>
+			</tr>
+			<tr>
+					<td>Visibility</td>
+					<td>CPU</td>
+					<td>CPU</td>
+					<td>CPU</td>
+					<td>GPU</td>
+					<td>GPU</td>
+			</tr>
+			<tr>
+					<td>Geometry LOD</td>
+					<td>CPU</td>
+					<td>CPU</td>
+					<td>CPU</td>
+					<td>CPU</td>
+					<td>GPU</td>
+			</tr>
+			<tr>
+					<td>Draw Unit</td>
+					<td>Mesh</td>
+					<td>Mesh</td>
+					<td>Mesh</td>
+					<td>Mesh</td>
+					<td>Cluster</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="ownership控制权迁移">Ownership（控制权）迁移</h1>
+<p>现代 Renderer：</p>
+<p>最大的变化：</p>
+<p>不是 API。</p>
+<p>而是：</p>
+<p>控制权。</p>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">flowchart TD
+
+Driver
+
+↓
+
+Application
+
+↓
+
+GPU
+</code></pre><hr>
+<h2 id="dx9">DX9</h2>
+<p>Driver：</p>
+<p>拥有：</p>
+<ul>
+<li>Pipeline</li>
+<li>State</li>
+<li>Validation</li>
+</ul>
+<hr>
+<h2 id="dx11">DX11</h2>
+<p>Driver：</p>
+<p>仍然：</p>
+<p>拥有：</p>
+<ul>
+<li>Pipeline</li>
+<li>Validation</li>
+</ul>
+<p>增加：</p>
+<ul>
+<li>Command Buffer</li>
+</ul>
+<hr>
+<h2 id="dx12">DX12</h2>
+<p>Application：</p>
+<p>拥有：</p>
+<ul>
+<li>PSO</li>
+<li>Command List</li>
+<li>Resource State</li>
+</ul>
+<p>Driver：</p>
+<p>基本：</p>
+<p>退出。</p>
+<hr>
+<h2 id="gpu-driven">GPU Driven</h2>
+<p>GPU：</p>
+<p>拥有：</p>
+<ul>
+<li>Visibility</li>
+<li>Draw Command</li>
+<li>Draw Arguments</li>
+</ul>
+<hr>
+<h2 id="nanite-1">Nanite</h2>
+<p>GPU：</p>
+<p>进一步：</p>
+<p>拥有：</p>
+<ul>
+<li>Geometry</li>
+<li>LOD</li>
+<li>Cluster</li>
+</ul>
+<hr>
+<h1 id="ue-对应关系">UE 对应关系</h1>
+<table>
+	<thead>
+			<tr>
+					<th>UE 技术</th>
+					<th>所属阶段</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Static Mesh</td>
+					<td>DX11 / DX12</td>
+			</tr>
+			<tr>
+					<td>ISM</td>
+					<td>DrawInstanced</td>
+			</tr>
+			<tr>
+					<td>HISM</td>
+					<td>CPU Cluster Culling</td>
+			</tr>
+			<tr>
+					<td>Mesh Draw Command</td>
+					<td>DX12</td>
+			</tr>
+			<tr>
+					<td>PSO Cache</td>
+					<td>DX12</td>
+			</tr>
+			<tr>
+					<td>GPU Scene</td>
+					<td>GPU Driven</td>
+			</tr>
+			<tr>
+					<td>Instance Culling</td>
+					<td>GPU Driven</td>
+			</tr>
+			<tr>
+					<td>ExecuteIndirect</td>
+					<td>GPU Driven</td>
+			</tr>
+			<tr>
+					<td>Nanite</td>
+					<td>Geometry Driven</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="真正的性能优化对象">真正的性能优化对象</h1>
+<p>很多人：</p>
+<p>误认为：</p>
+<p>ExecuteIndirect：</p>
+<p>减少：</p>
+<p>Triangle。</p>
+<p>其实：</p>
+<p>不是。</p>
+<p>不同技术：</p>
+<p>优化：</p>
+<p>不同：</p>
+<p>对象。</p>
+<table>
+	<thead>
+			<tr>
+					<th>技术</th>
+					<th>优化对象</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>DrawInstanced</td>
+					<td>CPU Draw Submission</td>
+			</tr>
+			<tr>
+					<td>PSO</td>
+					<td>Driver Overhead</td>
+			</tr>
+			<tr>
+					<td>ExecuteIndirect</td>
+					<td>Draw Command Generation</td>
+			</tr>
+			<tr>
+					<td>GPU Scene</td>
+					<td>Visibility</td>
+			</tr>
+			<tr>
+					<td>HLOD</td>
+					<td>Mesh Count</td>
+			</tr>
+			<tr>
+					<td>LOD</td>
+					<td>Triangle Count</td>
+			</tr>
+			<tr>
+					<td>Nanite</td>
+					<td>Cluster / Triangle Count</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="renderer-演进真正解决的问题">Renderer 演进真正解决的问题</h1>
+<table>
+	<thead>
+			<tr>
+					<th>时代</th>
+					<th>解决的问题</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>DX9</td>
+					<td>基础硬件加速</td>
+			</tr>
+			<tr>
+					<td>DX11</td>
+					<td>Driver Command Buffer</td>
+			</tr>
+			<tr>
+					<td>DX12</td>
+					<td>Driver Overhead</td>
+			</tr>
+			<tr>
+					<td>GPU Driven</td>
+					<td>CPU Visibility / Draw Generation</td>
+			</tr>
+			<tr>
+					<td>Nanite</td>
+					<td>Geometry Complexity</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="最终总结">最终总结</h1>
+<p>现代 Graphics API 的发展，本质不是：</p>
+<pre tabindex="0"><code>同步
+
+↓
+
+异步
+</code></pre><p>而是：</p>
+<pre tabindex="0"><code>Driver
+
+↓
+
+Application
+
+↓
+
+GPU
+</code></pre><p>控制权：</p>
+<p>不断：</p>
+<p>向 GPU 转移。</p>
+<p>最终形成：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Scene
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU Visibility
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU Draw Command
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU Geometry
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Rasterizer
+</span></span></code></pre></div><p>这也是 Unreal Engine 5、RE Engine、Snowdrop、Decima 等现代渲染架构共同的发展方向。</p>
+<hr>
+<h1 id="一张图总结">一张图总结</h1>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">flowchart LR
+
+A[&#34;DX9&lt;br/&gt;Driver Owns Pipeline&#34;]
+
+B[&#34;DX11&lt;br/&gt;Driver Command Buffer&#34;]
+
+C[&#34;DX12&lt;br/&gt;Application Owns Pipeline&#34;]
+
+D[&#34;GPU Driven&lt;br/&gt;GPU Owns Visibility&#34;]
+
+E[&#34;Nanite&lt;br/&gt;GPU Owns Geometry&#34;]
+
+A --&gt; B --&gt; C --&gt; D --&gt; E
+</code></pre><blockquote>
+<p><strong>一句话总结：</strong></p>
+<p><strong>过去 20 年 Graphics API 的演进，本质上就是 Renderer Ownership（渲染控制权）不断从 Driver 转移到 Application，再进一步转移到 GPU 的过程。</strong></p>
+</blockquote>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/graphics/">Graphics</a></li>
+        <li><a href="/tags/directx/">DirectX</a></li>
+        <li><a href="/tags/vulkan/">Vulkan</a></li>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/renderer/">Renderer</a></li>
+        <li><a href="/tags/gpu-driven/">GPU Driven</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>
