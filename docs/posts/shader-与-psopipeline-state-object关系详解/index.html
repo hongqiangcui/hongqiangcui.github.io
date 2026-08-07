@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Shader 与 PSO（Pipeline State Object）关系详解 | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>Shader 与 PSO（Pipeline State Object）关系详解</h1>
+
+  
+  
+  <time datetime="2026-08-07T00:00:00&#43;00:00">August 7, 2026</time>
+
+  <h1 id="shader-与-psopipeline-state-object关系详解">Shader 与 PSO（Pipeline State Object）关系详解</h1>
+<blockquote>
+<p>Shader 决定 <strong>GPU 如何计算（How to Compute）</strong>；</p>
+<p>PSO（Pipeline State Object）决定 <strong>GPU 如何执行（How to Render）</strong>。</p>
+<p>在现代图形 API（DirectX12、Vulkan、Metal）中，<strong>PSO 的数量通常远大于 Shader 的数量</strong>。</p>
+</blockquote>
+<hr>
+<h1 id="一句话理解">一句话理解</h1>
+<table>
+	<thead>
+			<tr>
+					<th>对象</th>
+					<th>职责</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Shader</td>
+					<td>GPU 程序，负责计算顶点、像素、计算着色等</td>
+			</tr>
+			<tr>
+					<td>PSO</td>
+					<td>GPU 渲染状态快照，包含 Shader 与所有固定渲染状态</td>
+			</tr>
+			<tr>
+					<td>Mesh Draw Command</td>
+					<td>一条真正的 Draw Command，引用某个 PSO 去绘制某个 Mesh</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="shader-是什么">Shader 是什么？</h1>
+<p>Shader 本质就是 GPU 程序。</p>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Vertex Shader (VS)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Pixel Shader (PS)
+</span></span></code></pre></div><p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-hlsl" data-lang="hlsl"><span style="display:flex;"><span>VSMain()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>PSMain()
+</span></span></code></pre></div><p>编译后：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>VS.cso
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>PS.cso
+</span></span></code></pre></div><p>Shader：</p>
+<p><strong>只负责计算。</strong></p>
+<p>例如：</p>
+<ul>
+<li>顶点变换</li>
+<li>光照计算</li>
+<li>PBR</li>
+<li>Shadow</li>
+<li>BRDF</li>
+</ul>
+<hr>
+<h1 id="pso-是什么">PSO 是什么？</h1>
+<p>PSO（Pipeline State Object）</p>
+<p>本质就是：</p>
+<blockquote>
+<p><strong>一套完整的 GPU Pipeline 配置。</strong></p>
+</blockquote>
+<p>一个 PSO 通常包含：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>PSO
+</span></span><span style="display:flex;"><span>├── Vertex Shader
+</span></span><span style="display:flex;"><span>├── Pixel Shader
+</span></span><span style="display:flex;"><span>├── Root Signature
+</span></span><span style="display:flex;"><span>├── Input Layout
+</span></span><span style="display:flex;"><span>├── Blend State
+</span></span><span style="display:flex;"><span>├── Rasterizer State
+</span></span><span style="display:flex;"><span>├── Depth / Stencil State
+</span></span><span style="display:flex;"><span>├── Primitive Topology
+</span></span><span style="display:flex;"><span>├── RTV Format
+</span></span><span style="display:flex;"><span>├── DSV Format
+</span></span><span style="display:flex;"><span>└── Sample Count
+</span></span></code></pre></div><p>因此：</p>
+<p>Shader：</p>
+<p>只是：</p>
+<p>PSO 的一部分。</p>
+<hr>
+<h1 id="shader-与-pso-的关系">Shader 与 PSO 的关系</h1>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">flowchart TD
+
+Shader --&gt; PSO
+
+BlendState --&gt; PSO
+
+Rasterizer --&gt; PSO
+
+DepthState --&gt; PSO
+
+InputLayout --&gt; PSO
+
+RTFormat --&gt; PSO
+
+RootSignature --&gt; PSO
+
+PSO --&gt; Draw
+</code></pre><hr>
+<h1 id="一个-shader-可以对应多个-pso">一个 Shader 可以对应多个 PSO</h1>
+<p>例如：</p>
+<p>只有：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>VS_Default
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>PS_Default
+</span></span></code></pre></div><p>但是：</p>
+<p>Blend：</p>
+<pre tabindex="0"><code>Opaque
+
+Transparent
+</code></pre><p>Raster：</p>
+<pre tabindex="0"><code>BackFace
+
+TwoSide
+</code></pre><p>Depth：</p>
+<pre tabindex="0"><code>Write
+
+ReadOnly
+</code></pre><p>最终：</p>
+<table>
+	<thead>
+			<tr>
+					<th>Shader</th>
+					<th>Blend</th>
+					<th>Raster</th>
+					<th>Depth</th>
+					<th>PSO</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>VS_Default + PS_Default</td>
+					<td>Opaque</td>
+					<td>BackFace</td>
+					<td>Write</td>
+					<td>PSO0</td>
+			</tr>
+			<tr>
+					<td>VS_Default + PS_Default</td>
+					<td>Transparent</td>
+					<td>BackFace</td>
+					<td>Write</td>
+					<td>PSO1</td>
+			</tr>
+			<tr>
+					<td>VS_Default + PS_Default</td>
+					<td>Opaque</td>
+					<td>TwoSide</td>
+					<td>Write</td>
+					<td>PSO2</td>
+			</tr>
+			<tr>
+					<td>VS_Default + PS_Default</td>
+					<td>Opaque</td>
+					<td>BackFace</td>
+					<td>ReadOnly</td>
+					<td>PSO3</td>
+			</tr>
+	</tbody>
+</table>
+<p>可以看到：</p>
+<p>Shader：</p>
+<p>没有变化。</p>
+<p>PSO：</p>
+<p>已经：</p>
+<p>4 个。</p>
+<hr>
+<h1 id="一个-pso-可以包含多个-shader-stage">一个 PSO 可以包含多个 Shader Stage</h1>
+<p>不同 Pipeline：</p>
+<p>包含不同 Shader。</p>
+<table>
+	<thead>
+			<tr>
+					<th>Pipeline</th>
+					<th>Shader Stage</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>普通渲染</td>
+					<td>VS + PS</td>
+			</tr>
+			<tr>
+					<td>Tessellation</td>
+					<td>VS + HS + DS + PS</td>
+			</tr>
+			<tr>
+					<td>Geometry</td>
+					<td>VS + GS + PS</td>
+			</tr>
+			<tr>
+					<td>Mesh Shader</td>
+					<td>AS + MS + PS</td>
+			</tr>
+			<tr>
+					<td>Compute</td>
+					<td>CS</td>
+			</tr>
+	</tbody>
+</table>
+<p>因此：</p>
+<p>一个 PSO：</p>
+<p>通常：</p>
+<p>不是：</p>
+<p>一个 Shader。</p>
+<p>而是：</p>
+<p>多个 Shader Stage。</p>
+<hr>
+<h1 id="为什么-pso-比-shader-多">为什么 PSO 比 Shader 多？</h1>
+<p>原因：</p>
+<p>PSO：</p>
+<p>包含：</p>
+<p>Shader</p>
+<ul>
+<li></li>
+</ul>
+<p>Render State。</p>
+<p>例如：</p>
+<pre tabindex="0"><code>Shader
+
+×
+
+Blend
+
+×
+
+Raster
+
+×
+
+Depth
+
+×
+
+RT Format
+
+×
+
+MSAA
+</code></pre><p>假设：</p>
+<table>
+	<thead>
+			<tr>
+					<th>状态</th>
+					<th>数量</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Shader</td>
+					<td>2</td>
+			</tr>
+			<tr>
+					<td>Blend</td>
+					<td>3</td>
+			</tr>
+			<tr>
+					<td>Raster</td>
+					<td>2</td>
+			</tr>
+			<tr>
+					<td>Depth</td>
+					<td>2</td>
+			</tr>
+			<tr>
+					<td>RT Format</td>
+					<td>3</td>
+			</tr>
+			<tr>
+					<td>MSAA</td>
+					<td>2</td>
+			</tr>
+	</tbody>
+</table>
+<p>最终：</p>
+<pre tabindex="0"><code>2 × 3 × 2 × 2 × 3 × 2
+
+=
+
+144 PSO
+</code></pre><p>Shader：</p>
+<p>只有：</p>
+<p>2。</p>
+<p>PSO：</p>
+<p>已经：</p>
+<p>144。</p>
+<hr>
+<h1 id="ue5-中-shader-与-pso">UE5 中 Shader 与 PSO</h1>
+<p>UE 中：</p>
+<p>关系通常如下：</p>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">flowchart TD
+
+Material
+
+↓
+
+Shader Permutation
+
+↓
+
+Shader Map
+
+↓
+
+Pipeline State Object
+
+↓
+
+Mesh Draw Command
+
+↓
+
+Draw
+</code></pre><hr>
+<h1 id="material-与-shader">Material 与 Shader</h1>
+<p>例如：</p>
+<pre tabindex="0"><code>M_Tree
+</code></pre><p>可能：</p>
+<p>生成：</p>
+<pre tabindex="0"><code>VS
+
+PS
+</code></pre><p>但是：</p>
+<p>由于：</p>
+<ul>
+<li>Base Pass</li>
+<li>Shadow Pass</li>
+<li>Depth Pass</li>
+<li>Velocity Pass</li>
+<li>Wireframe Pass</li>
+</ul>
+<p>最终：</p>
+<p>会产生：</p>
+<p>多个：</p>
+<p>PSO。</p>
+<hr>
+<h1 id="shader-permutation">Shader Permutation</h1>
+<p>Material：</p>
+<p>开启：</p>
+<pre tabindex="0"><code>Normal Map
+
+Clear Coat
+
+Fog
+
+Lightmap
+</code></pre><p>每一个：</p>
+<p>Static Switch：</p>
+<p>都会：</p>
+<p>生成：</p>
+<p>新的：</p>
+<p>Shader。</p>
+<p>例如：</p>
+<table>
+	<thead>
+			<tr>
+					<th>Feature</th>
+					<th>Shader</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Normal ON</td>
+					<td>Shader A</td>
+			</tr>
+			<tr>
+					<td>Normal OFF</td>
+					<td>Shader B</td>
+			</tr>
+			<tr>
+					<td>Clear Coat ON</td>
+					<td>Shader C</td>
+			</tr>
+			<tr>
+					<td>Fog ON</td>
+					<td>Shader D</td>
+			</tr>
+	</tbody>
+</table>
+<p>最终：</p>
+<p>Shader：</p>
+<p>越来越多。</p>
+<p>PSO：</p>
+<p>更多。</p>
+<hr>
+<h1 id="ue-为什么需要-pso-cache">UE 为什么需要 PSO Cache？</h1>
+<p>如果：</p>
+<p>运行过程中：</p>
+<p>第一次：</p>
+<p>遇到：</p>
+<p>新的：</p>
+<p>PSO。</p>
+<p>GPU：</p>
+<p>必须：</p>
+<p>Compile。</p>
+<p>于是：</p>
+<p>玩家：</p>
+<p>看到：</p>
+<pre tabindex="0"><code>Shader Stutter
+</code></pre><p>因此：</p>
+<p>UE：</p>
+<p>提供：</p>
+<ul>
+<li>PSO Cache</li>
+<li>PSO Precaching</li>
+<li>Shader Pipeline Cache</li>
+</ul>
+<p>提前：</p>
+<p>Compile：</p>
+<p>PSO。</p>
+<hr>
+<h1 id="shaderpsomesh-draw-command-对比">Shader、PSO、Mesh Draw Command 对比</h1>
+<table>
+	<thead>
+			<tr>
+					<th>对象</th>
+					<th>职责</th>
+					<th>是否包含 Shader</th>
+					<th>是否包含状态</th>
+					<th>是否真正 Draw</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Shader</td>
+					<td>GPU 计算程序</td>
+					<td>✅ 自身</td>
+					<td>❌</td>
+					<td>❌</td>
+			</tr>
+			<tr>
+					<td>PSO</td>
+					<td>Pipeline 配置</td>
+					<td>✅</td>
+					<td>✅</td>
+					<td>❌</td>
+			</tr>
+			<tr>
+					<td>Mesh Draw Command</td>
+					<td>Draw Command</td>
+					<td>引用 PSO</td>
+					<td>引用 PSO</td>
+					<td>✅</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="数量关系">数量关系</h1>
+<p>一个真实项目中：</p>
+<p>大致数量关系：</p>
+<table>
+	<thead>
+			<tr>
+					<th>类型</th>
+					<th>数量级</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Material</td>
+					<td>数百 ~ 数千</td>
+			</tr>
+			<tr>
+					<td>Shader Permutation</td>
+					<td>数万</td>
+			</tr>
+			<tr>
+					<td>PSO</td>
+					<td>十几万 ~ 数十万</td>
+			</tr>
+			<tr>
+					<td>Mesh Draw Command</td>
+					<td>数十万 ~ 上百万</td>
+			</tr>
+	</tbody>
+</table>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Material
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>1500
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Shader
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>32000
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>PSO
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>180000
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Mesh Draw Command
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>1200000
+</span></span></code></pre></div><p>因此：</p>
+<p>通常：</p>
+<pre tabindex="0"><code>Shader &lt;&lt; PSO &lt;&lt; Mesh Draw Command
+</code></pre><hr>
+<h1 id="dx11-与-dx12-的区别">DX11 与 DX12 的区别</h1>
+<h2 id="dx11">DX11</h2>
+<p>每次 Draw：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>VSSetShader()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>PSSetShader()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>OMSetBlendState()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>RSSetState()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>IASetInputLayout()
+</span></span></code></pre></div><p>Driver：</p>
+<p>动态组合：</p>
+<p>Pipeline。</p>
+<p>CPU：</p>
+<p>开销较大。</p>
+<hr>
+<h2 id="dx12">DX12</h2>
+<p>提前：</p>
+<p>创建：</p>
+<p>PSO。</p>
+<p>运行时：</p>
+<p>只有：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>SetPipelineState(PSO)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">↓</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Draw()
+</span></span></code></pre></div><p>CPU：</p>
+<p>无需：</p>
+<p>重新组合：</p>
+<p>状态。</p>
+<p>因此：</p>
+<p>效率：</p>
+<p>更高。</p>
+<hr>
+<h1 id="ue5-render-thread">UE5 Render Thread</h1>
+<p>真正：</p>
+<p>Render Thread：</p>
+<p>通常：</p>
+<p>不是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>SetShader()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Draw()
+</span></span></code></pre></div><p>而是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Find Mesh Draw Command
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Find PSO
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>SetPipelineState()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Bind Shader Resources
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>DrawIndexedInstanced()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>ExecuteCommandLists()
+</span></span></code></pre></div><p>因此：</p>
+<p>现代 Renderer：</p>
+<p>查找最多的：</p>
+<p>通常：</p>
+<p>不是：</p>
+<p>Shader。</p>
+<p>而是：</p>
+<p>PSO。</p>
+<hr>
+<h1 id="shader-与-pso-总结">Shader 与 PSO 总结</h1>
+<table>
+	<thead>
+			<tr>
+					<th>对比项</th>
+					<th>Shader</th>
+					<th>PSO</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>本质</td>
+					<td>GPU 程序</td>
+					<td>GPU Pipeline 状态对象</td>
+			</tr>
+			<tr>
+					<td>是否包含 Shader</td>
+					<td>自身</td>
+					<td>✅ 包含多个 Shader Stage</td>
+			</tr>
+			<tr>
+					<td>是否包含 Blend/Raster/Depth</td>
+					<td>❌</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>是否包含 Root Signature</td>
+					<td>❌</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>是否可以直接 Draw</td>
+					<td>❌</td>
+					<td>❌</td>
+			</tr>
+			<tr>
+					<td>是否需要绑定后才能 Draw</td>
+					<td>✅</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>一个 Shader 对应几个 PSO</td>
+					<td>很多</td>
+					<td>-</td>
+			</tr>
+			<tr>
+					<td>一个 PSO 包含几个 Shader</td>
+					<td>多个 Stage</td>
+					<td>-</td>
+			</tr>
+			<tr>
+					<td>UE5 数量</td>
+					<td>数万</td>
+					<td>十几万～数十万</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="最终关系图">最终关系图</h1>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">flowchart TD
+
+Material
+
+↓
+
+Shader Permutation
+
+↓
+
+Shader Map
+
+↓
+
+Pipeline State Object (PSO)
+
+↓
+
+Mesh Draw Command
+
+↓
+
+DrawInstanced / ExecuteIndirect
+
+↓
+
+Command List
+
+↓
+
+ExecuteCommandLists
+
+↓
+
+GPU
+</code></pre><hr>
+<h1 id="核心总结">核心总结</h1>
+<blockquote>
+<p><strong>Shader 决定 GPU 如何计算（How to Compute）。</strong></p>
+</blockquote>
+<blockquote>
+<p><strong>PSO 决定 GPU 如何执行这些 Shader（How to Render）。</strong></p>
+</blockquote>
+<blockquote>
+<p><strong>Mesh Draw Command 决定使用哪个 PSO 去绘制哪个 Mesh（What to Draw）。</strong></p>
+</blockquote>
+<p>因此：</p>
+<pre tabindex="0"><code>Material
+    ↓
+Shader
+    ↓
+PSO
+    ↓
+Mesh Draw Command
+    ↓
+Draw
+</code></pre><p>这是理解 Unreal Engine 5 Render Thread、Mesh Draw Command、GPU Scene、DrawInstanced、ExecuteIndirect 与 Nanite 的核心链路。</p>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/directx12/">DirectX12</a></li>
+        <li><a href="/tags/graphics/">Graphics</a></li>
+        <li><a href="/tags/rendering/">Rendering</a></li>
+        <li><a href="/tags/shader/">Shader</a></li>
+        <li><a href="/tags/pso/">PSO</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>
