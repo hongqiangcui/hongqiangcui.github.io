@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Creating a Basic Direct3D 12 Component | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>Creating a Basic Direct3D 12 Component</h1>
+
+  
+  
+  <time datetime="2026-08-08T00:00:00&#43;00:00">August 8, 2026</time>
+
+  <h1 id="creating-a-basic-direct3d-12-component">Creating a Basic Direct3D 12 Component</h1>
+<blockquote>
+<p>基于 Microsoft Learn《Creating a Basic Direct3D 12 Component》整理，采用 PaperMod + GitHub Flavored Markdown 风格。</p>
+</blockquote>
+<p><a href="https://learn.microsoft.com/en-us/windows/win32/direct3d12/creating-a-basic-direct3d-12-component?source=recommendations">https://learn.microsoft.com/en-us/windows/win32/direct3d12/creating-a-basic-direct3d-12-component?source=recommendations</a></p>
+<h2 id="前言">前言</h2>
+<p>Hello Triangle 并不仅仅是在屏幕上绘制一个三角形，它完整展示了 Direct3D 12 最核心的对象模型：</p>
+<ul>
+<li>Device</li>
+<li>Command Queue</li>
+<li>Swap Chain</li>
+<li>Descriptor Heap</li>
+<li>Root Signature</li>
+<li>Pipeline State Object（PSO）</li>
+<li>Command List</li>
+<li>Fence</li>
+</ul>
+<p>理解这一生命周期，就理解了 D3D12 的基本运行方式。</p>
+<hr>
+<h1 id="生命周期">生命周期</h1>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">flowchart TD
+A[Application Start]
+--&gt;B[Create Device]
+--&gt;C[Create Command Queue]
+--&gt;D[Create SwapChain]
+--&gt;E[Create RTV Heap]
+--&gt;F[Create Root Signature]
+--&gt;G[Compile Shader]
+--&gt;H[Create PSO]
+--&gt;I[Create Vertex Buffer]
+--&gt;J[Render Loop]
+
+J--&gt;K[Reset CommandAllocator]
+K--&gt;L[Record Command List]
+L--&gt;M[ExecuteCommandLists]
+M--&gt;N[Present]
+N--&gt;O[WaitForPreviousFrame]
+O--&gt;J
+</code></pre><hr>
+<h1 id="初始化">初始化</h1>
+<p>初始化主要分为两部分：</p>
+<h2 id="pipeline">Pipeline</h2>
+<ul>
+<li>创建设备（Device）</li>
+<li>创建 Command Queue</li>
+<li>创建 SwapChain</li>
+<li>创建 RTV Heap</li>
+<li>创建 Render Target</li>
+<li>创建 Command Allocator</li>
+</ul>
+<h2 id="assets">Assets</h2>
+<ul>
+<li>Root Signature</li>
+<li>Shader</li>
+<li>Input Layout</li>
+<li>Pipeline State Object</li>
+<li>Vertex Buffer</li>
+<li>Fence</li>
+</ul>
+<hr>
+<h1 id="render-流程">Render 流程</h1>
+<p>每帧流程如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Reset CommandAllocator
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Reset CommandList
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Set Root Signature
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Resource Barrier
+</span></span><span style="display:flex;"><span>(Present → RenderTarget)
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Clear RTV
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Draw Triangle
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Resource Barrier
+</span></span><span style="display:flex;"><span>(RenderTarget → Present)
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>ExecuteCommandLists
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>Present
+</span></span><span style="display:flex;"><span>        ↓
+</span></span><span style="display:flex;"><span>WaitForPreviousFrame
+</span></span></code></pre></div><hr>
+<h1 id="resource-barrier">Resource Barrier</h1>
+<p>Back Buffer 具有状态。</p>
+<p>渲染前：</p>
+<pre tabindex="0"><code>PRESENT
+</code></pre><p>绘制前必须转换：</p>
+<pre tabindex="0"><code>RENDER_TARGET
+</code></pre><p>绘制完成后再次转换：</p>
+<pre tabindex="0"><code>PRESENT
+</code></pre><p>因此每帧都会执行两次 Resource Barrier。</p>
+<hr>
+<h1 id="cpu--gpu-同步">CPU / GPU 同步</h1>
+<p>CPU 与 GPU 是异步工作的。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>CPU:
+</span></span><span style="display:flex;"><span>Frame1
+</span></span><span style="display:flex;"><span>Frame2
+</span></span><span style="display:flex;"><span>Frame3
+</span></span><span style="display:flex;"><span>Frame4
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GPU:
+</span></span><span style="display:flex;"><span>Frame1
+</span></span><span style="display:flex;"><span>Frame2
+</span></span></code></pre></div><p>Fence 用于保证 GPU 已完成当前资源访问，避免 CPU 提前修改或释放资源。</p>
+<p>同步流程：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Signal Fence
+</span></span><span style="display:flex;"><span>      ↓
+</span></span><span style="display:flex;"><span>GPU Execute
+</span></span><span style="display:flex;"><span>      ↓
+</span></span><span style="display:flex;"><span>Fence Complete
+</span></span><span style="display:flex;"><span>      ↓
+</span></span><span style="display:flex;"><span>CPU Continue
+</span></span></code></pre></div><hr>
+<h1 id="对象依赖关系">对象依赖关系</h1>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Device
+</span></span><span style="display:flex;"><span> └── Command Queue
+</span></span><span style="display:flex;"><span>      └── SwapChain
+</span></span><span style="display:flex;"><span>           └── RTV Heap
+</span></span><span style="display:flex;"><span>                └── Render Target
+</span></span><span style="display:flex;"><span>                     └── Command Allocator
+</span></span><span style="display:flex;"><span>                          └── Command List
+</span></span></code></pre></div><hr>
+<h1 id="核心-api">核心 API</h1>
+<h2 id="初始化-1">初始化</h2>
+<ul>
+<li>D3D12CreateDevice</li>
+<li>CreateCommandQueue</li>
+<li>CreateSwapChain</li>
+<li>CreateDescriptorHeap</li>
+</ul>
+<h2 id="pipeline-1">Pipeline</h2>
+<ul>
+<li>CreateRootSignature</li>
+<li>D3DCompileFromFile</li>
+<li>CreateGraphicsPipelineState</li>
+</ul>
+<h2 id="rendering">Rendering</h2>
+<ul>
+<li>ResourceBarrier</li>
+<li>ClearRenderTargetView</li>
+<li>DrawInstanced</li>
+<li>ExecuteCommandLists</li>
+<li>Present</li>
+</ul>
+<h2 id="synchronization">Synchronization</h2>
+<ul>
+<li>Signal</li>
+<li>SetEventOnCompletion</li>
+<li>WaitForSingleObject</li>
+</ul>
+<hr>
+<h1 id="总结">总结</h1>
+<p>Hello Triangle 的真正意义不是绘制一个三角形，而是展示 Direct3D 12 的完整工作流水线：</p>
+<ol>
+<li>初始化 GPU 对象</li>
+<li>配置图形管线</li>
+<li>上传资源</li>
+<li>录制命令</li>
+<li>提交 GPU 执行</li>
+<li>CPU/GPU 同步</li>
+<li>进入下一帧</li>
+</ol>
+<p>掌握这一流程后，就可以进一步学习纹理、深度缓冲、多缓冲、Compute Shader、Ray Tracing 等高级主题。</p>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/direct3d12/">Direct3D12</a></li>
+        <li><a href="/tags/graphics/">Graphics</a></li>
+        <li><a href="/tags/rendering/">Rendering</a></li>
+        <li><a href="/tags/microsoft-learn/">Microsoft Learn</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>

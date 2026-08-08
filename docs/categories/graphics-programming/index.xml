@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Graphics Programming on My New Hugo Project</title>
+		<link>http://localhost:1313/categories/graphics-programming/</link>
+		<description>Recent content in Graphics Programming on My New Hugo Project</description>
+		<generator>Hugo</generator>
+		<language>en-us</language>
+		
+		
+		
+		
+			<lastBuildDate>Sat, 08 Aug 2026 00:00:00 +0000</lastBuildDate>
+		
+			<atom:link href="http://localhost:1313/categories/graphics-programming/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Creating a Basic Direct3D 12 Component</title>
+				<link>http://localhost:1313/posts/creating_a_basic_direct3d12_component_papermod/</link>
+				<pubDate>Sat, 08 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/creating_a_basic_direct3d12_component_papermod/</guid>
+				<description>&lt;h1 id=&#34;creating-a-basic-direct3d-12-component&#34;&gt;Creating a Basic Direct3D 12 Component&lt;/h1&gt;&#xA;&lt;blockquote&gt;&#xA;&lt;p&gt;基于 Microsoft Learn《Creating a Basic Direct3D 12 Component》整理，采用 PaperMod + GitHub Flavored Markdown 风格。&lt;/p&gt;&#xA;&lt;/blockquote&gt;&#xA;&lt;h2 id=&#34;前言&#34;&gt;前言&lt;/h2&gt;&#xA;&lt;p&gt;Hello Triangle 并不仅仅是在屏幕上绘制一个三角形，它完整展示了 Direct3D 12 最核心的对象模型：&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;Device&lt;/li&gt;&#xA;&lt;li&gt;Command Queue&lt;/li&gt;&#xA;&lt;li&gt;Swap Chain&lt;/li&gt;&#xA;&lt;li&gt;Descriptor Heap&lt;/li&gt;&#xA;&lt;li&gt;Root Signature&lt;/li&gt;&#xA;&lt;li&gt;Pipeline State Object（PSO）&lt;/li&gt;&#xA;&lt;li&gt;Command List&lt;/li&gt;&#xA;&lt;li&gt;Fence&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;理解这一生命周期，就理解了 D3D12 的基本运行方式。&lt;/p&gt;&#xA;&lt;hr&gt;&#xA;&lt;h1 id=&#34;生命周期&#34;&gt;生命周期&lt;/h1&gt;&#xA;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code class=&#34;language-mermaid&#34; data-lang=&#34;mermaid&#34;&gt;flowchart TD&#xA;A[Application Start]&#xA;--&amp;gt;B[Create Device]&#xA;--&amp;gt;C[Create Command Queue]&#xA;--&amp;gt;D[Create SwapChain]&#xA;--&amp;gt;E[Create RTV Heap]&#xA;--&amp;gt;F[Create Root Signature]&#xA;--&amp;gt;G[Compile Shader]&#xA;--&amp;gt;H[Create PSO]&#xA;--&amp;gt;I[Create Vertex Buffer]&#xA;--&amp;gt;J[Render Loop]&#xA;&#xA;J--&amp;gt;K[Reset CommandAllocator]&#xA;K--&amp;gt;L[Record Command List]&#xA;L--&amp;gt;M[ExecuteCommandLists]&#xA;M--&amp;gt;N[Present]&#xA;N--&amp;gt;O[WaitForPreviousFrame]&#xA;O--&amp;gt;J&#xA;&lt;/code&gt;&lt;/pre&gt;&lt;hr&gt;&#xA;&lt;h1 id=&#34;初始化&#34;&gt;初始化&lt;/h1&gt;&#xA;&lt;p&gt;初始化主要分为两部分：&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>
