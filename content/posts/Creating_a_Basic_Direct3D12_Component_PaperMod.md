@@ -19,6 +19,8 @@ draft: false
 
 https://learn.microsoft.com/en-us/windows/win32/direct3d12/creating-a-basic-direct3d-12-component?source=recommendations
 
+https://github.com/Microsoft/DirectX-Graphics-Samples
+
 ## 前言
 
 Hello Triangle 并不仅仅是在屏幕上绘制一个三角形，它完整展示了 Direct3D 12 最核心的对象模型：
