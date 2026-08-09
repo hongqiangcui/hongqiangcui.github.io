@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>UE Mobile 开放世界 MMO 开发流程与团队岗位详解 | My New Hugo Project</title>
+
+      <link rel="stylesheet" href="/css/main.css">
+
+
+      <script src="/js/main.js"></script>
+
+
+</head>
+<body>
+  <header>
+    <h1>My New Hugo Project</h1>
+
+  <nav>
+    <ul>
+    <li>
+      <a href="/">Home</a>
+    </li>
+    <li>
+      <a aria-current="true" class="ancestor" href="/posts/">Posts</a>
+    </li>
+    <li>
+      <a href="/tags/">Tags</a>
+    </li>
+    </ul>
+  </nav>
+
+
+  </header>
+  <main>
+    
+  <h1>UE Mobile 开放世界 MMO 开发流程与团队岗位详解</h1>
+
+  
+  
+  <time datetime="2026-08-09T00:00:00&#43;00:00">August 9, 2026</time>
+
+  <h1 id="ue-mobile-开放世界-mmo-开发流程与团队岗位详解">UE Mobile 开放世界 MMO 开发流程与团队岗位详解</h1>
+<p>本文以 <strong>UE5 Mobile 开放世界 MMO</strong>（类似《原神》《鸣潮》《幻塔》等）的研发流程为例，介绍：</p>
+<ul>
+<li>一个大型游戏团队如何分工</li>
+<li>每个岗位负责什么</li>
+<li>最终如何落地到 Unreal Engine</li>
+<li>客户端与服务器如何协同工作</li>
+<li>Rendering Team 在整个项目中的位置</li>
+</ul>
+<hr>
+<h1 id="一整体组织架构">一、整体组织架构</h1>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>                          制作人
+</span></span><span style="display:flex;"><span>                             │
+</span></span><span style="display:flex;"><span>        ┌────────────────────┼────────────────────┐
+</span></span><span style="display:flex;"><span>        │                    │                    │
+</span></span><span style="display:flex;"><span>     策划部门             美术部门             技术部门
+</span></span><span style="display:flex;"><span>        │                    │                    │
+</span></span><span style="display:flex;"><span>        └──────────────┬─────┴──────────────┘
+</span></span><span style="display:flex;"><span>                       │
+</span></span><span style="display:flex;"><span>                  Unreal Engine
+</span></span><span style="display:flex;"><span>                       │
+</span></span><span style="display:flex;"><span>               Client + Server
+</span></span><span style="display:flex;"><span>                       │
+</span></span><span style="display:flex;"><span>                     QA &amp; Ops
+</span></span></code></pre></div><hr>
+<h1 id="二团队组成总览">二、团队组成总览</h1>
+<table>
+	<thead>
+			<tr>
+					<th>部门</th>
+					<th>主要职责</th>
+					<th>主要输出</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>制作</td>
+					<td>项目管理、排期、资源协调</td>
+					<td>Roadmap、版本计划</td>
+			</tr>
+			<tr>
+					<td>策划</td>
+					<td>游戏玩法、数值、关卡、剧情</td>
+					<td>Design Doc、Excel、DataTable</td>
+			</tr>
+			<tr>
+					<td>美术</td>
+					<td>模型、贴图、动画、特效、灯光</td>
+					<td>FBX、Texture、Material</td>
+			</tr>
+			<tr>
+					<td>客户端</td>
+					<td>Gameplay、UI、Rendering、Engine</td>
+					<td>UE C++、Blueprint</td>
+			</tr>
+			<tr>
+					<td>服务器</td>
+					<td>登录、战斗、同步、数据库</td>
+					<td>Server Code</td>
+			</tr>
+			<tr>
+					<td>TA</td>
+					<td>美术工具、Shader、自动化</td>
+					<td>Material、Python、Pipeline</td>
+			</tr>
+			<tr>
+					<td>QA</td>
+					<td>Bug、性能、兼容性</td>
+					<td>Bug Report</td>
+			</tr>
+			<tr>
+					<td>运维</td>
+					<td>部署、监控、热更新</td>
+					<td>DevOps</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="三策划部门">三、策划部门</h1>
+<table>
+	<thead>
+			<tr>
+					<th>岗位</th>
+					<th>工作内容</th>
+					<th>UE 最终落地</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>主策划</td>
+					<td>世界观、核心玩法</td>
+					<td>Design Document</td>
+			</tr>
+			<tr>
+					<td>系统策划</td>
+					<td>技能、装备、商城</td>
+					<td>DataTable</td>
+			</tr>
+			<tr>
+					<td>数值策划</td>
+					<td>HP、伤害、Buff、掉率</td>
+					<td>Excel → UDataTable</td>
+			</tr>
+			<tr>
+					<td>关卡策划</td>
+					<td>地图、NPC、机关</td>
+					<td>Level、World Partition</td>
+			</tr>
+			<tr>
+					<td>剧情策划</td>
+					<td>剧情、对白、演出</td>
+					<td>Level Sequence</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h2 id="数值策划的工作">数值策划的工作</h2>
+<p>例如：</p>
+<table>
+	<thead>
+			<tr>
+					<th>系统</th>
+					<th>内容</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>HP</td>
+					<td>玩家生命值</td>
+			</tr>
+			<tr>
+					<td>MP</td>
+					<td>法力值</td>
+			</tr>
+			<tr>
+					<td>Attack</td>
+					<td>攻击力</td>
+			</tr>
+			<tr>
+					<td>Buff</td>
+					<td>增益/减益状态</td>
+			</tr>
+			<tr>
+					<td>掉率</td>
+					<td>Boss Loot</td>
+			</tr>
+	</tbody>
+</table>
+<p>最终：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Excel
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>      ▼
+</span></span><span style="display:flex;"><span>CSV
+</span></span><span style="display:flex;"><span>      │
+</span></span><span style="display:flex;"><span>      ▼
+</span></span><span style="display:flex;"><span>UE DataTable
+</span></span></code></pre></div><hr>
+<h1 id="四美术部门">四、美术部门</h1>
+<h2 id="角色美术">角色美术</h2>
+<p>流程：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Concept
+</span></span><span style="display:flex;"><span>    │
+</span></span><span style="display:flex;"><span>    ▼
+</span></span><span style="display:flex;"><span>ZBrush
+</span></span><span style="display:flex;"><span>    │
+</span></span><span style="display:flex;"><span>    ▼
+</span></span><span style="display:flex;"><span>Retopo
+</span></span><span style="display:flex;"><span>    │
+</span></span><span style="display:flex;"><span>    ▼
+</span></span><span style="display:flex;"><span>UV
+</span></span><span style="display:flex;"><span>    │
+</span></span><span style="display:flex;"><span>    ▼
+</span></span><span style="display:flex;"><span>Texture
+</span></span><span style="display:flex;"><span>    │
+</span></span><span style="display:flex;"><span>    ▼
+</span></span><span style="display:flex;"><span>Rig
+</span></span><span style="display:flex;"><span>    │
+</span></span><span style="display:flex;"><span>    ▼
+</span></span><span style="display:flex;"><span>FBX
+</span></span></code></pre></div><hr>
+<h2 id="场景美术">场景美术</h2>
+<p>负责：</p>
+<ul>
+<li>房屋</li>
+<li>山体</li>
+<li>道路</li>
+<li>岩石</li>
+<li>桥梁</li>
+</ul>
+<p>输出：</p>
+<p>Static Mesh。</p>
+<hr>
+<h2 id="道具美术">道具美术</h2>
+<p>例如：</p>
+<ul>
+<li>武器</li>
+<li>宝箱</li>
+<li>路灯</li>
+<li>桌椅</li>
+</ul>
+<p>输出：</p>
+<p>Static Mesh。</p>
+<hr>
+<h2 id="植被美术">植被美术</h2>
+<p>负责：</p>
+<ul>
+<li>树</li>
+<li>草</li>
+<li>花</li>
+<li>灌木</li>
+</ul>
+<p>同时需要考虑：</p>
+<table>
+	<thead>
+			<tr>
+					<th>PC</th>
+					<th>Mobile</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Nanite</td>
+					<td>LOD</td>
+			</tr>
+			<tr>
+					<td>Wind</td>
+					<td>Wind</td>
+			</tr>
+			<tr>
+					<td>Virtual Shadow</td>
+					<td>Shadow Map</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h2 id="material-artist">Material Artist</h2>
+<p>负责：</p>
+<ul>
+<li>PBR Material</li>
+<li>Master Material</li>
+<li>Landscape Material</li>
+<li>Water Material</li>
+</ul>
+<p>不是写 Gameplay。</p>
+<hr>
+<h2 id="lighting-artist">Lighting Artist</h2>
+<p>Lighting Artist 并不是简单地&quot;放灯&quot;。</p>
+<p>主要负责：</p>
+<table>
+	<thead>
+			<tr>
+					<th>工作</th>
+					<th>内容</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>HDRI</td>
+					<td>环境光</td>
+			</tr>
+			<tr>
+					<td>SkyLight</td>
+					<td>天空光</td>
+			</tr>
+			<tr>
+					<td>Directional Light</td>
+					<td>太阳/月亮</td>
+			</tr>
+			<tr>
+					<td>Sky Atmosphere</td>
+					<td>大气</td>
+			</tr>
+			<tr>
+					<td>Fog</td>
+					<td>雾</td>
+			</tr>
+			<tr>
+					<td>Exposure</td>
+					<td>曝光</td>
+			</tr>
+			<tr>
+					<td>Color Grading</td>
+					<td>调色</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h3 id="hdri-是什么">HDRI 是什么？</h3>
+<p>HDRI（High Dynamic Range Image）</p>
+<p>不是普通图片。</p>
+<p>它记录：</p>
+<ul>
+<li>颜色</li>
+<li>光照方向</li>
+<li>光照强度</li>
+</ul>
+<p>例如：</p>
+<pre tabindex="0"><code>HDRI
+    │
+    ▼
+SkyLight
+    │
+    ▼
+Image Based Lighting (IBL)
+</code></pre><p>Lighting Artist 负责整个游戏画面的氛围。</p>
+<hr>
+<h2 id="animator">Animator</h2>
+<p>负责：</p>
+<ul>
+<li>跑步</li>
+<li>跳跃</li>
+<li>攻击</li>
+<li>技能</li>
+<li>表情</li>
+</ul>
+<p>输出：</p>
+<ul>
+<li>Animation Sequence</li>
+<li>Montage</li>
+<li>BlendSpace</li>
+</ul>
+<hr>
+<h2 id="vfx-artist">VFX Artist</h2>
+<p>负责：</p>
+<ul>
+<li>Niagara</li>
+<li>火焰</li>
+<li>爆炸</li>
+<li>魔法</li>
+<li>天气</li>
+</ul>
+<hr>
+<h2 id="technical-artistta">Technical Artist（TA）</h2>
+<p>TA 是连接程序和美术的重要岗位。</p>
+<p>主要负责：</p>
+<table>
+	<thead>
+			<tr>
+					<th>工作</th>
+					<th>内容</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Shader</td>
+					<td>材质</td>
+			</tr>
+			<tr>
+					<td>Material</td>
+					<td>主材质</td>
+			</tr>
+			<tr>
+					<td>Python</td>
+					<td>自动导入</td>
+			</tr>
+			<tr>
+					<td>Pipeline</td>
+					<td>美术流程</td>
+			</tr>
+			<tr>
+					<td>LOD</td>
+					<td>自动生成</td>
+			</tr>
+			<tr>
+					<td>Blueprint</td>
+					<td>工具</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="五客户端程序">五、客户端程序</h1>
+<p>客户端一般可以分成几个方向。</p>
+<hr>
+<h2 id="gameplay-programmer">Gameplay Programmer</h2>
+<p>负责：</p>
+<ul>
+<li>技能</li>
+<li>Buff</li>
+<li>AI</li>
+<li>战斗</li>
+<li>玩家交互</li>
+</ul>
+<hr>
+<h3 id="buff-是什么">Buff 是什么？</h3>
+<p>Buff：</p>
+<p>就是角色身上的持续状态（Status Effect）。</p>
+<p>例如：</p>
+<table>
+	<thead>
+			<tr>
+					<th>Buff</th>
+					<th>效果</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>攻击提升</td>
+					<td>Attack +20%</td>
+			</tr>
+			<tr>
+					<td>中毒</td>
+					<td>每秒掉血</td>
+			</tr>
+			<tr>
+					<td>冰冻</td>
+					<td>无法移动</td>
+			</tr>
+			<tr>
+					<td>减速</td>
+					<td>Speed -40%</td>
+			</tr>
+			<tr>
+					<td>护盾</td>
+					<td>吸收伤害</td>
+			</tr>
+	</tbody>
+</table>
+<p>大型项目：</p>
+<p>一般都会有：</p>
+<pre tabindex="0"><code>Character
+      │
+      ▼
+Buff Manager
+      │
+      ├── Buff A
+      ├── Buff B
+      ├── Buff C
+</code></pre><p>UE GAS 中：</p>
+<p>GameplayEffect 基本就是 Buff。</p>
+<hr>
+<h2 id="ui-programmer">UI Programmer</h2>
+<p>负责：</p>
+<ul>
+<li>HUD</li>
+<li>商城</li>
+<li>背包</li>
+<li>聊天</li>
+<li>小地图</li>
+</ul>
+<hr>
+<h2 id="ai-programmer">AI Programmer</h2>
+<p>负责：</p>
+<ul>
+<li>Behavior Tree</li>
+<li>EQS</li>
+<li>Navigation</li>
+<li>NPC</li>
+</ul>
+<hr>
+<h2 id="physics-programmer">Physics Programmer</h2>
+<p>负责：</p>
+<ul>
+<li>Chaos</li>
+<li>Vehicle</li>
+<li>Collision</li>
+<li>Ragdoll</li>
+</ul>
+<hr>
+<h2 id="rendering-programmer">Rendering Programmer</h2>
+<p>这是 UE 底层开发的重要岗位。</p>
+<p>负责：</p>
+<table>
+	<thead>
+			<tr>
+					<th>模块</th>
+					<th>内容</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Renderer</td>
+					<td>渲染器</td>
+			</tr>
+			<tr>
+					<td>Shader</td>
+					<td>Shader</td>
+			</tr>
+			<tr>
+					<td>Lighting</td>
+					<td>光照</td>
+			</tr>
+			<tr>
+					<td>Material</td>
+					<td>材质</td>
+			</tr>
+			<tr>
+					<td>Mesh Pipeline</td>
+					<td>Mesh 渲染</td>
+			</tr>
+			<tr>
+					<td>GPU Scene</td>
+					<td>GPU 驱动渲染</td>
+			</tr>
+			<tr>
+					<td>Virtual Shadow</td>
+					<td>阴影</td>
+			</tr>
+			<tr>
+					<td>Virtual Texture</td>
+					<td>VT</td>
+			</tr>
+			<tr>
+					<td>Instancing</td>
+					<td>实例化</td>
+			</tr>
+			<tr>
+					<td>Occlusion</td>
+					<td>遮挡剔除</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h2 id="engine-programmer">Engine Programmer</h2>
+<p>负责：</p>
+<p>修改 UE 源码。</p>
+<p>例如：</p>
+<ul>
+<li>TaskGraph</li>
+<li>Animation</li>
+<li>Memory</li>
+<li>Asset Streaming</li>
+<li>RHI</li>
+<li>Renderer</li>
+</ul>
+<hr>
+<h1 id="六gpu-scene-到底需要程序员做什么">六、GPU Scene 到底需要程序员做什么？</h1>
+<p>很多人认为：</p>
+<p>GPU Scene 是 UE 自带。</p>
+<p>程序员不用管。</p>
+<p>其实：</p>
+<p>需要区分：</p>
+<h2 id="游戏开发">游戏开发</h2>
+<p>基本：</p>
+<p>不用修改。</p>
+<p>直接：</p>
+<p>使用 UE。</p>
+<hr>
+<h2 id="引擎开发">引擎开发</h2>
+<p>很多 AAA：</p>
+<p>都会修改：</p>
+<p>例如：</p>
+<table>
+	<thead>
+			<tr>
+					<th>修改方向</th>
+					<th>举例</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Instance Culling</td>
+					<td>自定义剔除策略</td>
+			</tr>
+			<tr>
+					<td>GPU Buffer Layout</td>
+					<td>修改 Instance 数据结构</td>
+			</tr>
+			<tr>
+					<td>Streaming</td>
+					<td>GPU Scene Streaming</td>
+			</tr>
+			<tr>
+					<td>Draw Command</td>
+					<td>合并 Draw Command</td>
+			</tr>
+			<tr>
+					<td>Cluster</td>
+					<td>自定义 Cluster</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h3 id="不是-override-finstancecullingcontext">不是 Override FInstanceCullingContext</h3>
+<p>很多人误会：</p>
+<p>需要：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MyCulling</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">:</span> <span style="color:#66d9ef">public</span> FInstanceCullingContext
+</span></span></code></pre></div><p>实际上：</p>
+<p>不是。</p>
+<p>FInstanceCullingContext：</p>
+<p>更多是：</p>
+<p>Renderer 内部使用的 Context。</p>
+<p>真正修改：</p>
+<p>一般是：</p>
+<ul>
+<li>GPU Scene 写入</li>
+<li>Draw Command Build</li>
+<li>Instance 数据结构</li>
+<li>GPU Buffer</li>
+</ul>
+<p>而不是：</p>
+<p>Override Context。</p>
+<hr>
+<h1 id="七服务器程序">七、服务器程序</h1>
+<p>服务器通常包括：</p>
+<table>
+	<thead>
+			<tr>
+					<th>模块</th>
+					<th>功能</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Login</td>
+					<td>登录</td>
+			</tr>
+			<tr>
+					<td>Gateway</td>
+					<td>网络转发</td>
+			</tr>
+			<tr>
+					<td>World</td>
+					<td>世界</td>
+			</tr>
+			<tr>
+					<td>Battle</td>
+					<td>战斗</td>
+			</tr>
+			<tr>
+					<td>Chat</td>
+					<td>聊天</td>
+			</tr>
+			<tr>
+					<td>Database</td>
+					<td>存档</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="八客户端与服务器关系">八、客户端与服务器关系</h1>
+<p>很多新人认为：</p>
+<p>客户端和服务器：</p>
+<p>共用一套代码。</p>
+<p>实际上：</p>
+<p>不是。</p>
+<hr>
+<h2 id="可以共享">可以共享</h2>
+<table>
+	<thead>
+			<tr>
+					<th>模块</th>
+					<th>是否共享</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Protocol</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Enum</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>配置</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>数学库</td>
+					<td>✅</td>
+			</tr>
+			<tr>
+					<td>Utility</td>
+					<td>✅</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h2 id="客户端独有">客户端独有</h2>
+<table>
+	<thead>
+			<tr>
+					<th>模块</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Rendering</td>
+			</tr>
+			<tr>
+					<td>Animation</td>
+			</tr>
+			<tr>
+					<td>UI</td>
+			</tr>
+			<tr>
+					<td>Camera</td>
+			</tr>
+			<tr>
+					<td>Audio</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h2 id="服务器独有">服务器独有</h2>
+<table>
+	<thead>
+			<tr>
+					<th>模块</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Login</td>
+			</tr>
+			<tr>
+					<td>Battle</td>
+			</tr>
+			<tr>
+					<td>Database</td>
+			</tr>
+			<tr>
+					<td>AI</td>
+			</tr>
+			<tr>
+					<td>Save</td>
+			</tr>
+			<tr>
+					<td>Sync</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h2 id="一个技能如何工作">一个技能如何工作？</h2>
+<p>例如：</p>
+<p>FireBall。</p>
+<p>配置：</p>
+<p>共享：</p>
+<pre tabindex="0"><code>Damage
+Mana
+Cooldown
+</code></pre><p>客户端：</p>
+<p>负责：</p>
+<ul>
+<li>播放动画</li>
+<li>播放特效</li>
+<li>播放声音</li>
+</ul>
+<p>服务器：</p>
+<p>负责：</p>
+<ul>
+<li>扣血</li>
+<li>计算暴击</li>
+<li>网络同步</li>
+</ul>
+<p>因此：</p>
+<p>逻辑不同。</p>
+<p>代码不同。</p>
+<hr>
+<h1 id="九ue-dedicated-server">九、UE Dedicated Server</h1>
+<p>UE：</p>
+<p>支持：</p>
+<pre tabindex="0"><code>同一工程
+
+↓
+
+Client
+
+↓
+
+Dedicated Server
+</code></pre><p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#75715e">#if UE_SERVER
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>CalculateDamage();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#endif
+</span></span></span></code></pre></div><p>服务器：</p>
+<p>编译。</p>
+<p>客户端：</p>
+<p>不会。</p>
+<hr>
+<h2 id="真正的大型-mmo">真正的大型 MMO</h2>
+<p>很多：</p>
+<p>不会直接使用 UE Server。</p>
+<p>例如：</p>
+<pre tabindex="0"><code>UE Client
+      │
+      ▼
+Gateway
+      │
+      ▼
+Go / C++ / Java / Rust
+</code></pre><p>因为：</p>
+<p>服务器：</p>
+<p>更关注：</p>
+<ul>
+<li>并发</li>
+<li>网络</li>
+<li>数据</li>
+</ul>
+<p>而不是：</p>
+<p>Renderer。</p>
+<hr>
+<h1 id="十项目资源流转">十、项目资源流转</h1>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>策划
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Design Doc
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Concept
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>角色/场景/道具
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>FBX
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>TA 自动导入 UE
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Material
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Gameplay
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Level
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Server
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>QA
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>发布
+</span></span></code></pre></div><hr>
+<h1 id="十一典型团队规模约100人">十一、典型团队规模（约100人）</h1>
+<table>
+	<thead>
+			<tr>
+					<th>部门</th>
+					<th>人数</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>制作</td>
+					<td>2~4</td>
+			</tr>
+			<tr>
+					<td>策划</td>
+					<td>10~15</td>
+			</tr>
+			<tr>
+					<td>美术</td>
+					<td>35~45</td>
+			</tr>
+			<tr>
+					<td>客户端</td>
+					<td>15~20</td>
+			</tr>
+			<tr>
+					<td>服务器</td>
+					<td>10~15</td>
+			</tr>
+			<tr>
+					<td>音频</td>
+					<td>2~4</td>
+			</tr>
+			<tr>
+					<td>QA</td>
+					<td>10~15</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="十二如果想成为-ue-技术负责人">十二、如果想成为 UE 技术负责人</h1>
+<p>建议重点学习：</p>
+<table>
+	<thead>
+			<tr>
+					<th>方向</th>
+					<th>学习内容</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Rendering</td>
+					<td>Mesh、Shader、GPU Scene、Lighting、Material、Instancing</td>
+			</tr>
+			<tr>
+					<td>Engine</td>
+					<td>TaskGraph、Memory、Streaming、Animation</td>
+			</tr>
+			<tr>
+					<td>Gameplay</td>
+					<td>GAS、Buff、AI、Network</td>
+			</tr>
+			<tr>
+					<td>Optimization</td>
+					<td>CPU、GPU、Memory、Mobile Profiling</td>
+			</tr>
+	</tbody>
+</table>
+<p>建议学习路线：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>UE Client Tech
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── Rendering
+</span></span><span style="display:flex;"><span>│   ├── Mesh Pipeline
+</span></span><span style="display:flex;"><span>│   ├── Material
+</span></span><span style="display:flex;"><span>│   ├── Shader
+</span></span><span style="display:flex;"><span>│   ├── Lighting
+</span></span><span style="display:flex;"><span>│   ├── GPU Scene
+</span></span><span style="display:flex;"><span>│   ├── Instancing
+</span></span><span style="display:flex;"><span>│   ├── Occlusion
+</span></span><span style="display:flex;"><span>│   └── Mobile Rendering
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── Engine
+</span></span><span style="display:flex;"><span>│   ├── TaskGraph
+</span></span><span style="display:flex;"><span>│   ├── Memory
+</span></span><span style="display:flex;"><span>│   ├── Streaming
+</span></span><span style="display:flex;"><span>│   ├── Animation
+</span></span><span style="display:flex;"><span>│   └── RHI
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>├── Gameplay
+</span></span><span style="display:flex;"><span>│   ├── GAS
+</span></span><span style="display:flex;"><span>│   ├── Buff
+</span></span><span style="display:flex;"><span>│   ├── AI
+</span></span><span style="display:flex;"><span>│   └── Networking
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>└── Optimization
+</span></span><span style="display:flex;"><span>    ├── CPU
+</span></span><span style="display:flex;"><span>    ├── GPU
+</span></span><span style="display:flex;"><span>    ├── Memory
+</span></span><span style="display:flex;"><span>    ├── Asset Pipeline
+</span></span><span style="display:flex;"><span>    └── Mobile Performance
+</span></span></code></pre></div><hr>
+<h1 id="总结">总结</h1>
+<p>一个 UE Mobile 开放世界 MMO 的开发，本质上是多个专业团队共同协作的结果：</p>
+<ul>
+<li><strong>策划</strong> 定义游戏规则和玩法。</li>
+<li><strong>美术</strong> 负责创造世界、角色和视觉效果。</li>
+<li><strong>TA</strong> 搭建美术与引擎之间的桥梁，实现自动化流程。</li>
+<li><strong>客户端程序</strong> 负责 Gameplay、UI、Rendering、Engine 等功能。</li>
+<li><strong>服务器程序</strong> 负责登录、世界、战斗、同步和数据存储。</li>
+<li><strong>QA 与运维</strong> 保证游戏质量和持续运营。</li>
+</ul>
+<p>对于希望深入 Unreal Engine 底层的开发者而言，<strong>Rendering、Engine、GPU Scene、Asset Streaming、移动端性能优化以及网络同步</strong> 是开放世界 MMO 最具技术挑战、也是最值得长期投入的核心方向。</p>
+  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/mmo/">MMO</a></li>
+        <li><a href="/tags/game-development/">Game Development</a></li>
+        <li><a href="/tags/mobile/">Mobile</a></li>
+        <li><a href="/tags/rendering/">Rendering</a></li>
+        <li><a href="/tags/engine/">Engine</a></li>
+    </ul>
+  </div>
+
+
+  </main>
+  <footer>
+    <p>Copyright 2026. All rights reserved.</p>
+
+  </footer>
+</body>
+</html>
