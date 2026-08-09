@@ -3,7 +3,7 @@
 <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <meta charset="utf-8">
 <meta name="viewport" content="width=device-width">
-<title> | My New Hugo Project</title>
+<title>深入理解 Reflection、Specular、Lighting 与 Global Illumination | My New Hugo Project</title>
 
       <link rel="stylesheet" href="/css/main.css">
 
@@ -34,14 +34,448 @@
   </header>
   <main>
     
-  <h1></h1>
+  <h1>深入理解 Reflection、Specular、Lighting 与 Global Illumination</h1>
 
   
   
-  <time datetime="0001-01-01T00:00:00&#43;00:00">January 1, 1</time>
+  <time datetime="2026-08-06T00:00:00&#43;00:00">August 6, 2026</time>
 
+  <blockquote>
+<p><strong>一句话总结</strong></p>
+<p><strong>Lighting / GI</strong> 负责 <strong>光能传播（Energy Transport）</strong>；
+<strong>Reflection / Specular</strong> 负责 <strong>图像形成（Image Formation）</strong>。</p>
+</blockquote>
+<hr>
+<h1 id="为什么大家容易混淆">为什么大家容易混淆？</h1>
+<p>很多教程会这样讲：</p>
+<ul>
+<li>Reflection = 反射</li>
+<li>Specular = 高光</li>
+<li>GI = 全局光照</li>
+</ul>
+<p>但实际上，这三个概念属于<strong>完全不同的层次</strong>。</p>
+<p>现代 PBR 更准确的分类如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Lighting
+</span></span><span style="display:flex;"><span>├── Direct Lighting
+</span></span><span style="display:flex;"><span>│   ├── Diffuse
+</span></span><span style="display:flex;"><span>│   └── Specular
+</span></span><span style="display:flex;"><span>│
+</span></span><span style="display:flex;"><span>└── Indirect Lighting
+</span></span><span style="display:flex;"><span>    ├── Diffuse Indirect Lighting（GI）
+</span></span><span style="display:flex;"><span>    └── Specular Reflection
+</span></span></code></pre></div><p>真正应该理解的是：</p>
+<blockquote>
+<p><strong>Lighting 研究的是光；Reflection 研究的是图像。</strong></p>
+</blockquote>
+<hr>
+<h1 id="lighting光照">Lighting（光照）</h1>
+<p>Lighting 关注的是：</p>
+<blockquote>
+<p>一个点最终收到了多少光能（Radiance）。</p>
+</blockquote>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Sun
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Floor
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Wall
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Character
+</span></span></code></pre></div><p>Lighting 不关心：</p>
+<blockquote>
+<p>「最后看到的是谁？」</p>
+</blockquote>
+<p>它关心的是：</p>
+<blockquote>
+<p>「还有多少光能？」</p>
+</blockquote>
+<p>因此：</p>
+<p>Lighting 的核心是：</p>
+<ul>
+<li>Energy（能量）</li>
+<li>Radiance（辐射亮度）</li>
+<li>Irradiance（照度）</li>
+</ul>
+<p>而不是：</p>
+<ul>
+<li>Image（图像）</li>
+</ul>
+<hr>
+<h1 id="global-illuminationgi">Global Illumination（GI）</h1>
+<p>GI 的全称：</p>
+<blockquote>
+<p><strong>Global Illumination</strong></p>
+</blockquote>
+<p>它表示：</p>
+<blockquote>
+<p>光线在整个场景中的传播。</p>
+</blockquote>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Sun
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Wall
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Floor
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Character
+</span></span></code></pre></div><p>太阳没有直接照到角色：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Sun
+</span></span><span style="display:flex;"><span> │
+</span></span><span style="display:flex;"><span> ▼
+</span></span><span style="display:flex;"><span>Wall
+</span></span></code></pre></div><p>但是：</p>
+<p>墙壁收到太阳光以后：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Wall
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓↓↓↓↓↓↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Diffuse Reflection
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓↓↓↓↓↓↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Character
+</span></span></code></pre></div><p>角色依然变亮。</p>
+<p>这就是：</p>
+<p><strong>Indirect Lighting</strong></p>
+<p>也就是：</p>
+<p><strong>Global Illumination</strong></p>
+<hr>
+<h1 id="为什么-gi-不会形成图像">为什么 GI 不会形成图像？</h1>
+<p>GI 几乎都是：</p>
+<p><strong>Diffuse Reflection</strong></p>
+<p>即：</p>
+<p>Lambert Reflection</p>
+<p>它会把光线：</p>
+<p>向整个半球随机散射。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>        ↑
+</span></span><span style="display:flex;"><span>     ↗  ↑  ↖
+</span></span><span style="display:flex;"><span>   ←   ●   →
+</span></span><span style="display:flex;"><span>     ↘  ↓  ↙
+</span></span></code></pre></div><p>方向信息完全丢失。</p>
+<p>因此：</p>
+<p>GI 最终得到的是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>这里有多少光？
+</span></span></code></pre></div><p>而不是：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>这里看到了什么？
+</span></span></code></pre></div><hr>
+<blockquote>
+<p><strong>结论</strong></p>
+<p>GI 传播的是<strong>光能（Energy）</strong>，
+而不是<strong>图像（Image）</strong>。</p>
+</blockquote>
+<hr>
+<h1 id="reflection反射">Reflection（反射）</h1>
+<p>Reflection 关注的是：</p>
+<blockquote>
+<p>沿着某一个方向，到底看到了什么。</p>
+</blockquote>
+<p>例如镜子：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Camera
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>   \
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    \
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>     Mirror
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        \
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>         House
+</span></span></code></pre></div><p>Reflection 会计算：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Camera
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Reflection Ray
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>House
+</span></span></code></pre></div><p>于是：</p>
+<p>镜子里面出现：</p>
+<ul>
+<li>房子</li>
+<li>天空</li>
+<li>树木</li>
+<li>人物</li>
+</ul>
+<p>这就是：</p>
+<p><strong>Image Formation</strong></p>
+<hr>
+<h1 id="为什么-reflection-能形成图像">为什么 Reflection 能形成图像？</h1>
+<p>因为：</p>
+<p>Reflection 保留了方向。</p>
+<p>每一个像素都会得到：</p>
+<p>唯一一条 Reflection Ray。</p>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Pixel A
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Tree
+</span></span></code></pre></div><p>得到：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Green
+</span></span></code></pre></div><p>而：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Pixel B
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Sky
+</span></span></code></pre></div><p>得到：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Blue
+</span></span></code></pre></div><p>所有像素组合起来：</p>
+<p>就是完整图像。</p>
+<hr>
+<h1 id="specular镜面反射">Specular（镜面反射）</h1>
+<p>很多教材把：</p>
+<blockquote>
+<p>Specular = 高光</p>
+</blockquote>
+<p>其实这是一个历史遗留说法。</p>
+<p>真正准确的是：</p>
+<blockquote>
+<p><strong>Specular Reflection（镜面反射）</strong></p>
+</blockquote>
+<p>高光（Highlight）</p>
+<p>只是其中一种表现。</p>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Light
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Metal Ball
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Camera
+</span></span></code></pre></div><p>只有：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Light
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Reflection
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Camera
+</span></span></code></pre></div><p>三个方向刚好一致。</p>
+<p>于是形成：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Highlight
+</span></span></code></pre></div><p>因此：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Highlight
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>⊂
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Specular Reflection
+</span></span></code></pre></div><p>高光只是镜面反射的一部分。</p>
+<hr>
+<h1 id="现代-pbr-为什么不用-specular--高光">现代 PBR 为什么不用 &ldquo;Specular = 高光&rdquo;</h1>
+<p>现代 PBR 中：</p>
+<p>Specular 更多表示：</p>
+<p>整个环境的镜面成像。</p>
+<p>例如：</p>
+<ul>
+<li>天空</li>
+<li>HDRI</li>
+<li>建筑</li>
+<li>云</li>
+<li>树木</li>
+</ul>
+<p>全部都会产生：</p>
+<p><strong>Specular Reflection</strong></p>
+<p>例如：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Environment Map
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>↓
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Specular Reflection
+</span></span></code></pre></div><p>因此：</p>
+<p>现代引擎里面：</p>
+<p>Specular 更多表示：</p>
+<blockquote>
+<p><strong>Environment Reflection</strong></p>
+</blockquote>
+<p>而不是：</p>
+<blockquote>
+<p>一个亮点。</p>
+</blockquote>
+<hr>
+<h1 id="gi-与-reflection-的本质区别">GI 与 Reflection 的本质区别</h1>
+<table>
+	<thead>
+			<tr>
+					<th>GI</th>
+					<th>Reflection</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>光能传播</td>
+					<td>图像形成</td>
+			</tr>
+			<tr>
+					<td>Energy Transport</td>
+					<td>Image Formation</td>
+			</tr>
+			<tr>
+					<td>Diffuse</td>
+					<td>Specular</td>
+			</tr>
+			<tr>
+					<td>不保留方向</td>
+					<td>保留方向</td>
+			</tr>
+			<tr>
+					<td>不形成图像</td>
+					<td>形成图像</td>
+			</tr>
+			<tr>
+					<td>间接照明</td>
+					<td>镜面成像</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="现代-pbr-的正确术语">现代 PBR 的正确术语</h1>
+<p>现代渲染论文、Disney BRDF、Filament、UE5 等更推荐下面这些名称。</p>
+<table>
+	<thead>
+			<tr>
+					<th>常见叫法</th>
+					<th>PBR 更准确表达</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>GI</td>
+					<td>Diffuse Indirect Lighting</td>
+			</tr>
+			<tr>
+					<td>Reflection</td>
+					<td>Specular Reflection</td>
+			</tr>
+			<tr>
+					<td>高光</td>
+					<td>Direct Specular Highlight</td>
+			</tr>
+			<tr>
+					<td>环境反射</td>
+					<td>Specular Environment Reflection</td>
+			</tr>
+			<tr>
+					<td>漫反射</td>
+					<td>Diffuse Reflection</td>
+			</tr>
+			<tr>
+					<td>光照</td>
+					<td>Lighting</td>
+			</tr>
+	</tbody>
+</table>
+<p>可以看到：</p>
+<blockquote>
+<p><strong>GI</strong> 已经越来越少单独使用。</p>
+</blockquote>
+<p>更多论文都会写成：</p>
+<ul>
+<li>Diffuse Indirect Lighting</li>
+<li>Indirect Diffuse</li>
+<li>Specular Reflection</li>
+</ul>
+<hr>
+<h1 id="ue5--lumen-中的对应关系">UE5 / Lumen 中的对应关系</h1>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">graph TD
+
+Lighting
+
+Lighting --&gt; DirectLighting
+Lighting --&gt; IndirectLighting
+
+DirectLighting --&gt; DirectDiffuse
+DirectLighting --&gt; DirectSpecular
+
+IndirectLighting --&gt; DiffuseGI
+IndirectLighting --&gt; SpecularReflection
+
+DiffuseGI --&gt; EnergyTransport
+SpecularReflection --&gt; ImageFormation
+</code></pre><p>对应 UE5：</p>
+<table>
+	<thead>
+			<tr>
+					<th>UE5 功能</th>
+					<th>本质</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Lumen Global Illumination</td>
+					<td>Diffuse Indirect Lighting</td>
+			</tr>
+			<tr>
+					<td>Lumen Reflections</td>
+					<td>Specular Reflection</td>
+			</tr>
+			<tr>
+					<td>Screen Space Reflection</td>
+					<td>Specular Reflection</td>
+			</tr>
+			<tr>
+					<td>Hardware RT Reflection</td>
+					<td>Specular Reflection</td>
+			</tr>
+	</tbody>
+</table>
+<hr>
+<h1 id="一张图理解所有概念">一张图理解所有概念</h1>
+<pre tabindex="0"><code class="language-mermaid" data-lang="mermaid">graph LR
+
+Sun --&gt; Lighting
+
+Lighting --&gt; Diffuse
+
+Lighting --&gt; Specular
+
+Diffuse --&gt; GI
+
+GI --&gt; Energy[&#34;Energy Transport&#34;]
+
+Specular --&gt; Reflection
+
+Reflection --&gt; Image[&#34;Image Formation&#34;]
+</code></pre><hr>
+<h1 id="总结">总结</h1>
+<blockquote>
+<p><strong>一句话记忆</strong></p>
+</blockquote>
+<ul>
+<li>Lighting 负责让世界<strong>亮起来</strong>。</li>
+<li>GI 负责让光<strong>传播</strong>。</li>
+<li>Reflection 负责让物体<strong>照出来</strong>。</li>
+<li>Specular 是镜面反射，不只是高光。</li>
+</ul>
+<p>现代 PBR 更推荐使用：</p>
+<ul>
+<li><strong>Diffuse Indirect Lighting</strong> —— 漫反射能量传播</li>
+<li><strong>Specular Reflection</strong> —— 镜面环境成像</li>
+</ul>
+<p>这也是 UE5、Filament、Disney BRDF、Frostbite 等现代渲染框架采用的术语体系。</p>
   
-  
+  <div>
+    <div>Tags:</div>
+    <ul>
+        <li><a href="/tags/graphics/">Graphics</a></li>
+        <li><a href="/tags/rendering/">Rendering</a></li>
+        <li><a href="/tags/pbr/">PBR</a></li>
+        <li><a href="/tags/unreal-engine/">Unreal Engine</a></li>
+        <li><a href="/tags/lumen/">Lumen</a></li>
+    </ul>
+  </div>
 
 
   </main>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Rendering on My New Hugo Project</title>
+		<link>http://localhost:1313/categories/rendering/</link>
+		<description>Recent content in Rendering on My New Hugo Project</description>
+		<generator>Hugo</generator>
+		<language>en-us</language>
+		
+		
+		
+		
+			<lastBuildDate>Thu, 06 Aug 2026 00:00:00 +0000</lastBuildDate>
+		
+			<atom:link href="http://localhost:1313/categories/rendering/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>深入理解 Reflection、Specular、Lighting 与 Global Illumination</title>
+				<link>http://localhost:1313/posts/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3-reflection%E5%8F%8D%E5%B0%84specular%E9%AB%98%E5%85%89lighting%E5%85%89%E7%85%A7%E4%B8%8E-giglobal-illumination/</link>
+				<pubDate>Thu, 06 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3-reflection%E5%8F%8D%E5%B0%84specular%E9%AB%98%E5%85%89lighting%E5%85%89%E7%85%A7%E4%B8%8E-giglobal-illumination/</guid>
+				<description>&lt;blockquote&gt;&#xA;&lt;p&gt;&lt;strong&gt;一句话总结&lt;/strong&gt;&lt;/p&gt;&#xA;&lt;p&gt;&lt;strong&gt;Lighting / GI&lt;/strong&gt; 负责 &lt;strong&gt;光能传播（Energy Transport）&lt;/strong&gt;；&#xA;&lt;strong&gt;Reflection / Specular&lt;/strong&gt; 负责 &lt;strong&gt;图像形成（Image Formation）&lt;/strong&gt;。&lt;/p&gt;&#xA;&lt;/blockquote&gt;&#xA;&lt;hr&gt;</description>
+			</item>
+	</channel>
+</rss>

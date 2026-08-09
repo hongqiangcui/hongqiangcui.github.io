@@ -84,6 +84,13 @@
 				<description></description>
 			</item>
 			<item>
+				<title>深入理解 Reflection、Specular、Lighting 与 Global Illumination</title>
+				<link>http://localhost:1313/posts/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3-reflection%E5%8F%8D%E5%B0%84specular%E9%AB%98%E5%85%89lighting%E5%85%89%E7%85%A7%E4%B8%8E-giglobal-illumination/</link>
+				<pubDate>Thu, 06 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>http://localhost:1313/posts/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3-reflection%E5%8F%8D%E5%B0%84specular%E9%AB%98%E5%85%89lighting%E5%85%89%E7%85%A7%E4%B8%8E-giglobal-illumination/</guid>
+				<description>&lt;blockquote&gt;&#xA;&lt;p&gt;&lt;strong&gt;一句话总结&lt;/strong&gt;&lt;/p&gt;&#xA;&lt;p&gt;&lt;strong&gt;Lighting / GI&lt;/strong&gt; 负责 &lt;strong&gt;光能传播（Energy Transport）&lt;/strong&gt;；&#xA;&lt;strong&gt;Reflection / Specular&lt;/strong&gt; 负责 &lt;strong&gt;图像形成（Image Formation）&lt;/strong&gt;。&lt;/p&gt;&#xA;&lt;/blockquote&gt;&#xA;&lt;hr&gt;</description>
+			</item>
+			<item>
 				<title>Hello</title>
 				<link>http://localhost:1313/posts/hello/</link>
 				<pubDate>Wed, 05 Aug 2026 00:00:00 +0000</pubDate>
@@ -190,9 +197,9 @@
 			</item>
 			<item>
 				<title></title>
-				<link>http://localhost:1313/posts/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3-reflection%E5%8F%8D%E5%B0%84specular%E9%AB%98%E5%85%89lighting%E5%85%89%E7%85%A7%E4%B8%8E-giglobal-illumination/</link>
+				<link>http://localhost:1313/posts/%E5%9B%BE%E5%BD%A2%E5%AD%A6%E4%B8%AD%E7%9A%84-mesh%E6%B3%95%E7%BA%BFtessellation-%E4%B8%8E-nanite-%E5%8E%9F%E7%90%86%E6%80%BB%E7%BB%93/</link>
 				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>http://localhost:1313/posts/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3-reflection%E5%8F%8D%E5%B0%84specular%E9%AB%98%E5%85%89lighting%E5%85%89%E7%85%A7%E4%B8%8E-giglobal-illumination/</guid>
+				<guid>http://localhost:1313/posts/%E5%9B%BE%E5%BD%A2%E5%AD%A6%E4%B8%AD%E7%9A%84-mesh%E6%B3%95%E7%BA%BFtessellation-%E4%B8%8E-nanite-%E5%8E%9F%E7%90%86%E6%80%BB%E7%BB%93/</guid>
 				<description></description>
 			</item>
 			<item>
